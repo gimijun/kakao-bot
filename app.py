@@ -1,66 +1,47 @@
 from flask import Flask, request, jsonify
-import openai
-import os
 
 app = Flask(__name__)
 
-# OpenAI API 키
-openai.api_key = os.environ.get("OPENAI_API_KEY")
-
 @app.route("/kakao", methods=["POST"])
-def kakao_chatbot():
+def kakao_webhook():
     try:
-        # 카카오 오픈빌더에서 보낸 메시지 추출
+        # 카카오 오픈빌더 요청 JSON 받기
         body = request.get_json()
-        user_input = body.get("userRequest", {}).get("utterance", "")
+        user_input = body.get("userRequest", {}).get("utterance", "(입력 없음)")
 
-        if not user_input:
-            return jsonify({
-                "version": "2.0",
-                "template": {
-                    "outputs": [{
-                        "simpleText": {
-                            "text": "❗입력된 내용이 없습니다."
-                        }
-                    }]
-                }
-            })
+        # 입력 로그 확인용 출력
+        print(f"[사용자 입력] {user_input}")
 
-        # GPT 응답 생성
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_input}]
-        )
-        gpt_reply = response.choices[0].message["content"]
-
-        # 카카오톡 응답 포맷
+        # 더미 응답 구성 (실제 처리 로직은 나중에 추가 예정)
         return jsonify({
             "version": "2.0",
             "template": {
-                "outputs": [{
-                    "simpleText": {
-                        "text": gpt_reply
+                "outputs": [
+                    {
+                        "simpleText": {
+                            "text": f"✅ 입력 잘 받았습니다!\n\n입력 내용: {user_input}"
+                        }
                     }
-                }]
+                ]
             }
         })
-
     except Exception as e:
-        # 예외 발생 시 fallback 응답
         return jsonify({
             "version": "2.0",
             "template": {
-                "outputs": [{
-                    "simpleText": {
-                        "text": f"⚠️ 오류 발생: {str(e)}"
+                "outputs": [
+                    {
+                        "simpleText": {
+                            "text": f"⚠️ 오류 발생: {str(e)}"
+                        }
                     }
-                }]
+                ]
             }
         })
 
 @app.route("/", methods=["GET"])
-def health():
-    return "✅ 카카오 GPT 챗봇 서버 작동 중!"
+def home():
+    return "카카오 챗봇 Flask 서버 작동 중!"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
