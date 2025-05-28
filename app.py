@@ -11,7 +11,7 @@ def fetch_naver_rss_news(category_url, max_count=5):
             "title": entry.title,
             "description": entry.summary if hasattr(entry, "summary") else "",
             "link": entry.link,
-            "image": "https://via.placeholder.com/200"  # RSS에 이미지 없음
+            "image": "https://via.placeholder.com/200"
         })
     return news_items
 
@@ -44,7 +44,7 @@ def list_card_response(title, category_url):
                             {
                                 "label": "전체 뉴스 보기",
                                 "action": "webLink",
-                                "webLinkUrl": "https://news.naver.com"
+                                "webLinkUrl": category_url
                             }
                         ]
                     }
@@ -53,16 +53,43 @@ def list_card_response(title, category_url):
         }
     })
 
-# 예: 정치 뉴스
+# 카테고리별 라우트 정의
 @app.route("/news/politics", methods=["POST"])
 def news_politics():
-    rss_url = "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=100&viewType=rss"
-    return list_card_response("정치", rss_url)
+    return list_card_response("정치", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=100&viewType=rss")
 
-# 헬스 체크용
+@app.route("/news/economy", methods=["POST"])
+def news_economy():
+    return list_card_response("경제", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=101&viewType=rss")
+
+@app.route("/news/society", methods=["POST"])
+def news_society():
+    return list_card_response("사회", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=102&viewType=rss")
+
+@app.route("/news/culture", methods=["POST"])
+def news_culture():
+    return list_card_response("문화", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=103&viewType=rss")
+
+@app.route("/news/world", methods=["POST"])
+def news_world():
+    return list_card_response("세계", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=104&viewType=rss")
+
+@app.route("/news/it", methods=["POST"])
+def news_it():
+    return list_card_response("IT/과학", "https://news.naver.com/main/list.naver?mode=LSD&mid=shm&sid1=105&viewType=rss")
+
+@app.route("/news/entertainment", methods=["POST"])
+def news_entertainment():
+    return list_card_response("연예", "https://entertain.naver.com/rss")
+
+@app.route("/news/sports", methods=["POST"])
+def news_sports():
+    return list_card_response("스포츠", "https://sports.news.naver.com/rss/news.nhn")
+
+# 헬스체크
 @app.route("/", methods=["GET"])
 def health():
-    return "네이버 RSS 기반 뉴스봇 작동 중입니다."
+    return "네이버 RSS 기반 뉴스봇 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
