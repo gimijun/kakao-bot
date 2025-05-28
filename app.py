@@ -1,29 +1,24 @@
 from flask import Flask, jsonify, request
 import requests
-from bs4 import BeautifulSoup
+import os
 
 app = Flask(__name__)
+NEWS_API_KEY = os.getenv("NEWS_API_KEY") or "57d7009cb3534e669e1028d974b01ea8"
 
 def fetch_news(keyword, count=5):
-    url = f"https://search.naver.com/search.naver?where=news&query={keyword}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    url = f"https://newsapi.org/v2/everything?q={keyword}&pageSize={count}&sortBy=publishedAt&language=ko&apiKey={NEWS_API_KEY}"
     try:
-        res = requests.get(url, headers=headers, timeout=3)
-    except requests.exceptions.Timeout:
+        res = requests.get(url, timeout=3)
+        articles = res.json().get("articles", [])
+    except Exception:
         return []
-    soup = BeautifulSoup(res.text, "html.parser")
 
     news_items = []
-    for item in soup.select(".list_news .news_area")[:count]:
-        title_tag = item.select_one(".news_tit")
-        img_tag = item.select_one(".dsc_thumb img")
-        title = title_tag['title'] if title_tag else "제목 없음"
-        link = title_tag['href'] if title_tag else "#"
-        image = img_tag['src'] if img_tag else "https://via.placeholder.com/640"
+    for article in articles:
         news_items.append({
-            "title": title,
-            "link": link,
-            "image": image
+            "title": article.get("title", "제목 없음"),
+            "link": article.get("url", "#"),
+            "image": article.get("urlToImage") or "https://via.placeholder.com/640"
         })
     return news_items
 
@@ -50,6 +45,14 @@ def news_route(keyword, more_keywords):
                 })
     else:
         articles = fetch_news(keyword)
+
+        if not articles:
+            articles = [{
+                "title": f"{keyword} 관련 뉴스를 불러오지 못했습니다.",
+                "link": "https://news.naver.com/",
+                "image": "https://via.placeholder.com/640"
+            }]
+
         cards = [{
             "title": article["title"],
             "description": "",
@@ -79,6 +82,7 @@ def news_route(keyword, more_keywords):
         }
     })
 
+# 카테고리별 라우팅
 @app.route("/news/politics", methods=["POST"])
 def news_politics():
     return news_route("정치", ["선거", "정당", "정책", "국회", "대통령실"])
