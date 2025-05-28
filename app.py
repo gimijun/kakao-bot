@@ -3,12 +3,12 @@ import requests
 import os
 
 app = Flask(__name__)
-NEWS_API_KEY = os.getenv("NEWS_API_KEY") or "57d7009cb3534e669e1028d974b01ea8"
+NEWS_API_KEY = os.getenv("NEWS_API_KEY") or "여기에_실제_API_키를_입력하세요"
 
 def fetch_news(keyword, count=5):
     url = f"https://newsapi.org/v2/everything?q={keyword}&pageSize={count}&sortBy=publishedAt&language=ko&apiKey={NEWS_API_KEY}"
     try:
-        res = requests.get(url, timeout=3)
+        res = requests.get(url, timeout=5)
         articles = res.json().get("articles", [])
     except Exception:
         return []
