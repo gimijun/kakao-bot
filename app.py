@@ -3,7 +3,7 @@ import requests
 import os
 
 app = Flask(__name__)
-NEWS_API_KEY = os.getenv("NEWS_API_KEY") or "YOUR_NEWS_API_KEY"
+NEWS_API_KEY = os.getenv("NEWS_API_KEY") or "57d7009cb3534e669e1028d974b01ea8"
 
 CATEGORY_KEYWORDS = {
     "정치": "정치 OR 국회 OR 외교 OR 선거",
