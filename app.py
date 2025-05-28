@@ -4,11 +4,13 @@ from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# 뉴스 검색 및 추출 함수
 def fetch_news(keyword, count=5):
     url = f"https://search.naver.com/search.naver?where=news&query={keyword}"
     headers = {"User-Agent": "Mozilla/5.0"}
-    res = requests.get(url, headers=headers)
+    try:
+        res = requests.get(url, headers=headers, timeout=3)
+    except requests.exceptions.Timeout:
+        return []
     soup = BeautifulSoup(res.text, "html.parser")
 
     news_items = []
@@ -25,7 +27,6 @@ def fetch_news(keyword, count=5):
         })
     return news_items
 
-# 공통 응답 포맷 함수
 def news_route(keyword, more_keywords):
     if request.args.get("more") == "true":
         cards = []
@@ -78,7 +79,6 @@ def news_route(keyword, more_keywords):
         }
     })
 
-# 카테고리별 라우팅
 @app.route("/news/politics", methods=["POST"])
 def news_politics():
     return news_route("정치", ["선거", "정당", "정책", "국회", "대통령실"])
@@ -111,6 +111,5 @@ def news_sports():
 def news_entertainment():
     return news_route("연예", ["아이돌", "배우", "드라마", "예능", "음악"])
 
-# 서버 실행
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
