@@ -149,7 +149,7 @@ def sports(): return list_card_response("스포츠", "https://rss.donga.com/spor
 def entertainment(): return list_card_response("엔터테인먼트", "https://rss.donga.com/sportsdonga/entertainment.xml", "https://sports.donga.com/Entertainment")
 
 # 사용자 검색어 처리
-@app.route("/search", methods=["POST"])
+@app.route("/news/search", methods=["POST"])
 def search():
     body = request.get_json()
     keyword = body.get("action", {}).get("params", {}).get("검색어", "").strip()
