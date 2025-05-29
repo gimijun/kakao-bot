@@ -4,7 +4,7 @@ import re
 
 app = Flask(__name__)
 
-# 메모리 캐시 (Render에서는 디스크 캐시는 비권장)
+# 간단한 메모리 기반 이미지 캐시
 image_cache = {}
 
 CATEGORY_INFO = {
@@ -61,19 +61,18 @@ def fetch_rss_news(category_key, max_count=5):
 
     for entry in feed.entries[:max_count]:
         title = entry.title.strip()
-        desc = getattr(entry, "summary", "").strip()
+        raw_desc = getattr(entry, "summary", "") or getattr(entry, "description", "")
         url = entry.link
 
-        # 이미지 캐싱
+        # 이미지 캐시 적용
         if url in image_cache:
             image = image_cache[url]
         else:
-            image = extract_image(desc)
+            image = extract_image(raw_desc)
             image_cache[url] = image
 
         news_items.append({
             "title": title,
-            "description": desc[:60],
             "link": url,
             "image": image
         })
@@ -87,14 +86,12 @@ def list_card_response(category_key):
     if not articles:
         items = [{
             "title": f"{category['title']} 뉴스를 불러올 수 없습니다.",
-            "description": "잠시 후 다시 시도해 주세요.",
             "imageUrl": "https://via.placeholder.com/200",
             "link": {"web": category["link"]}
         }]
     else:
         items = [{
             "title": a["title"],
-            "description": a["description"],
             "imageUrl": a["image"],
             "link": {"web": a["link"]}
         } for a in articles]
@@ -118,7 +115,7 @@ def list_card_response(category_key):
 
 @app.route("/", methods=["GET"])
 def health():
-    return "카카오 뉴스봇 RSS + 이미지 캐싱 정상 작동 중입니다."
+    return "카카오 뉴스봇 RSS + 이미지 캐싱 + 설명 제거 작동 중입니다."
 
 @app.route("/news/<category>", methods=["POST"])
 def news_category(category):
