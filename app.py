@@ -1,127 +1,77 @@
 from flask import Flask, jsonify, request
 import feedparser
-import re
 
 app = Flask(__name__)
 
-# 간단한 메모리 기반 이미지 캐시
-image_cache = {}
-
-CATEGORY_INFO = {
-    "politics": {
-        "title": "정치",
-        "rss": "https://rss.donga.com/politics.xml",
-        "link": "https://www.donga.com/news/Politics"
-    },
-    "economy": {
-        "title": "경제",
-        "rss": "https://rss.donga.com/economy.xml",
-        "link": "https://www.donga.com/news/Economy"
-    },
-    "society": {
-        "title": "사회",
-        "rss": "https://rss.donga.com/society.xml",
-        "link": "https://www.donga.com/news/Society"
-    },
-    "culture": {
-        "title": "문화",
-        "rss": "https://rss.donga.com/culture.xml",
-        "link": "https://www.donga.com/news/Culture"
-    },
-    "world": {
-        "title": "국제",
-        "rss": "https://rss.donga.com/international.xml",
-        "link": "https://www.donga.com/news/Inter"
-    },
-    "it": {
-        "title": "IT/과학",
-        "rss": "https://rss.donga.com/it.xml",
-        "link": "https://www.donga.com/news/It"
-    },
-    "entertainment": {
-        "title": "연예",
-        "rss": "https://rss.donga.com/entertainment.xml",
-        "link": "https://www.donga.com/news/Entertainment"
-    },
-    "sports": {
-        "title": "스포츠",
-        "rss": "https://rss.donga.com/sports.xml",
-        "link": "https://www.donga.com/news/Sports"
-    }
-}
-
-def extract_image(description, fallback="https://via.placeholder.com/200"):
-    match = re.search(r'<img[^>]+src="([^">]+)"', description)
-    return match.group(1) if match else fallback
-
-def fetch_rss_news(category_key, max_count=5):
-    category = CATEGORY_INFO[category_key]
-    feed = feedparser.parse(category["rss"])
+def fetch_rss_news(rss_url, max_count=5):
+    feed = feedparser.parse(rss_url)
     news_items = []
-
     for entry in feed.entries[:max_count]:
-        title = entry.title.strip()
-        raw_desc = getattr(entry, "summary", "") or getattr(entry, "description", "")
-        url = entry.link
-
-        # 이미지 캐시 적용
-        if url in image_cache:
-            image = image_cache[url]
-        else:
-            image = extract_image(raw_desc)
-            image_cache[url] = image
-
         news_items.append({
-            "title": title,
-            "link": url,
-            "image": image
+            "title": entry.title,
+            "link": entry.link,
+            "image": "https://t1.daumcdn.net/media/img-section/news_card_default.png"  # 카카오 기본 이미지 사용
         })
-
     return news_items
 
-def list_card_response(category_key):
-    category = CATEGORY_INFO[category_key]
-    articles = fetch_rss_news(category_key)
-
+def list_card_response(title, rss_url):
+    articles = fetch_rss_news(rss_url)
     if not articles:
         items = [{
-            "title": f"{category['title']} 뉴스를 불러올 수 없습니다.",
+            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
             "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": category["link"]}
+            "link": { "web": "https://news.daum.net/" }
         }]
     else:
         items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
+            "title": article["title"],
+            "imageUrl": article["image"],
+            "link": { "web": article["link"] }
+        } for article in articles]
 
     return jsonify({
         "version": "2.0",
         "template": {
             "outputs": [{
                 "listCard": {
-                    "header": {"title": f"{category['title']} 뉴스 TOP {len(items)}"},
+                    "header": { "title": f"{title} 뉴스 TOP {len(items)}" },
                     "items": items,
                     "buttons": [{
                         "label": "더보기",
                         "action": "webLink",
-                        "webLinkUrl": category["link"]
+                        "webLinkUrl": rss_url.replace(".xml", "")  # 예: RSS 링크 제거한 뉴스 페이지
                     }]
                 }
             }]
         }
     })
 
-@app.route("/", methods=["GET"])
-def health():
-    return "카카오 뉴스봇 RSS + 이미지 캐싱 + 설명 제거 작동 중입니다."
+@app.route("/news/politics", methods=["POST"])
+def politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml")
 
-@app.route("/news/<category>", methods=["POST"])
-def news_category(category):
-    if category not in CATEGORY_INFO:
-        return jsonify({"error": "카테고리 없음"}), 404
-    return list_card_response(category)
+@app.route("/news/economy", methods=["POST"])
+def economy(): return list_card_response("경제", "https://rss.donga.com/economy.xml")
+
+@app.route("/news/society", methods=["POST"])
+def society(): return list_card_response("사회", "https://rss.donga.com/society.xml")
+
+@app.route("/news/culture", methods=["POST"])
+def culture(): return list_card_response("문화", "https://rss.donga.com/culture.xml")
+
+@app.route("/news/world", methods=["POST"])
+def world(): return list_card_response("국제", "https://rss.donga.com/international.xml")
+
+@app.route("/news/it", methods=["POST"])
+def it(): return list_card_response("IT/과학", "https://rss.donga.com/it.xml")
+
+@app.route("/news/entertainment", methods=["POST"])
+def entertainment(): return list_card_response("연예", "https://rss.donga.com/entertainment.xml")
+
+@app.route("/news/sports", methods=["POST"])
+def sports(): return list_card_response("스포츠", "https://rss.donga.com/sports.xml")
+
+@app.route("/", methods=["GET"])
+def health(): return "카카오 뉴스봇(RSS) 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
