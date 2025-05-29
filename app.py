@@ -1,51 +1,78 @@
 from flask import Flask, jsonify, request
 import feedparser
-import aiohttp
-import asyncio
 
 app = Flask(__name__)
 
-# 비동기 RSS 파싱 함수
-async def fetch_rss_async(category_url, max_count=5):
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(category_url, timeout=3) as resp:
-                content = await resp.text()
-        except Exception:
-            return []  # 타임아웃 등 예외 시 빈 리스트
+CATEGORY_INFO = {
+    "politics": {
+        "title": "정치",
+        "rss": "https://rss.donga.com/politics.xml",
+        "link": "https://www.donga.com/news/Politics"
+    },
+    "economy": {
+        "title": "경제",
+        "rss": "https://rss.donga.com/economy.xml",
+        "link": "https://www.donga.com/news/Economy"
+    },
+    "society": {
+        "title": "사회",
+        "rss": "https://rss.donga.com/society.xml",
+        "link": "https://www.donga.com/news/Society"
+    },
+    "culture": {
+        "title": "문화",
+        "rss": "https://rss.donga.com/culture.xml",
+        "link": "https://www.donga.com/news/Culture"
+    },
+    "world": {
+        "title": "국제",
+        "rss": "https://rss.donga.com/international.xml",
+        "link": "https://www.donga.com/news/Inter"
+    },
+    "it": {
+        "title": "IT/과학",
+        "rss": "https://rss.donga.com/it.xml",
+        "link": "https://www.donga.com/news/It"
+    },
+    "entertainment": {
+        "title": "연예",
+        "rss": "https://rss.donga.com/entertainment.xml",
+        "link": "https://www.donga.com/news/Entertainment"
+    },
+    "sports": {
+        "title": "스포츠",
+        "rss": "https://rss.donga.com/sports.xml",
+        "link": "https://www.donga.com/news/Sports"
+    }
+}
 
-    feed = feedparser.parse(content)
+def fetch_rss_news(category_key, max_count=5):
+    category = CATEGORY_INFO[category_key]
+    feed = feedparser.parse(category["rss"])
     news_items = []
     for entry in feed.entries[:max_count]:
-        # 이미지 추출 (media:content 우선)
-        image_url = "https://via.placeholder.com/200"
-        if hasattr(entry, "media_content"):
-            try:
-                image_url = entry.media_content[0]["url"]
-            except Exception:
-                pass
         news_items.append({
-            "title": entry.title,
-            "description": getattr(entry, "summary", "")[:50],
+            "title": entry.title.strip(),
+            "description": getattr(entry, "summary", "").strip()[:60],
             "link": entry.link,
-            "image": image_url
+            "image": "https://via.placeholder.com/200"  # 추후 이미지 크롤링 적용 가능
         })
     return news_items
 
-# 비동기 라우트 처리
-async def list_card_response(title, category_url):
-    articles = await fetch_rss_async(category_url)
+def list_card_response(category_key):
+    category = CATEGORY_INFO[category_key]
+    articles = fetch_rss_news(category_key)
     if not articles:
         items = [{
-            "title": f"{title} 뉴스를 불러오지 못했습니다.",
+            "title": f"{category['title']} 관련 뉴스를 불러오지 못했습니다.",
             "description": "잠시 후 다시 시도해 주세요.",
             "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": "https://www.donga.com/"}
+            "link": {"web": category["link"]}
         }]
     else:
         items = [{
             "title": a["title"],
-            "description": "",
+            "description": a["description"],
             "imageUrl": a["image"],
             "link": {"web": a["link"]}
         } for a in articles]
@@ -55,62 +82,26 @@ async def list_card_response(title, category_url):
         "template": {
             "outputs": [{
                 "listCard": {
-                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
+                    "header": {"title": f"{category['title']} 뉴스 TOP {len(items)}"},
                     "items": items,
                     "buttons": [{
-                        "label": "전체 뉴스 보기",
+                        "label": "더보기",
                         "action": "webLink",
-                        "webLinkUrl": category_url
+                        "webLinkUrl": category["link"]
                     }]
                 }
             }]
         }
     })
 
-# -----------------------
-# 각 뉴스 카테고리 라우트
-# -----------------------
-
-@app.route("/news/politics", methods=["POST"])
-async def news_politics():
-    return await list_card_response("정치", "https://rss.donga.com/politics.xml")
-
-@app.route("/news/economy", methods=["POST"])
-async def news_economy():
-    return await list_card_response("경제", "https://rss.donga.com/economy.xml")
-
-@app.route("/news/society", methods=["POST"])
-async def news_society():
-    return await list_card_response("사회", "https://rss.donga.com/society.xml")
-
-@app.route("/news/culture", methods=["POST"])
-async def news_culture():
-    return await list_card_response("문화", "https://rss.donga.com/culture.xml")
-
-@app.route("/news/world", methods=["POST"])
-async def news_world():
-    return await list_card_response("국제", "https://rss.donga.com/international.xml")
-
-@app.route("/news/it", methods=["POST"])
-async def news_it():
-    return await list_card_response("IT", "https://rss.donga.com/it.xml")
-
-@app.route("/news/entertainment", methods=["POST"])
-async def news_entertainment():
-    return await list_card_response("연예", "https://rss.donga.com/entertainment.xml")
-
-@app.route("/news/sports", methods=["POST"])
-async def news_sports():
-    return await list_card_response("스포츠", "https://rss.donga.com/sports.xml")
-
-# 헬스체크
 @app.route("/", methods=["GET"])
 def health():
-    return "RSS 비동기 뉴스봇 작동 중입니다."
+    return "카카오 뉴스봇(RSS) 작동 중"
+
+# 카테고리별 라우터 생성
+for cat_key in CATEGORY_INFO:
+    endpoint = f"/news/{cat_key}"
+    app.add_url_rule(endpoint, endpoint, lambda cat=cat_key: list_card_response(cat), methods=["POST"])
 
 if __name__ == "__main__":
-    import os
-    import nest_asyncio
-    nest_asyncio.apply()  # Jupyter나 일부 환경에서 필요
-    import asyncio
-    asyncio.run(app.run(host="0.0.0.0", port=5000))
+    app.run(host="0.0.0.0", port=5000)
