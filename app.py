@@ -9,12 +9,6 @@ def extract_image_from_entry(entry):
         for media in entry.media_content:
             if 'url' in media:
                 return media['url']
-
-    # desc = entry.get("summary", "") or entry.get("description", "")
-    # match = re.search(r'<img[^>]+src="([^">]+)"', desc)
-    # if match:
-    #     return match.group(1)
-
     return "https://t1.daumcdn.net/media/img-section/news_card_default.png"
 
 def fetch_rss_news(rss_url, max_count=5):
@@ -96,7 +90,8 @@ def sports():
 def entertainment():
     return list_card_response("엔터테인먼트", "https://rss.donga.com/sportsdonga/entertainment.xml", "https://sports.donga.com/Entertainment")
 
-@app.route("/", methods=["GET"])
+# 상태 확인 라우트 (GET + HEAD)
+@app.route("/", methods=["GET", "HEAD"])
 def health():
     return "카카오 뉴스봇(RSS 최적화) 정상 작동 중입니다."
 
