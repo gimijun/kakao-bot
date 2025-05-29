@@ -57,6 +57,57 @@ def list_card_response(title, rss_url, web_url):
         }
     })
 
+# 사용자 자유 입력 뉴스 검색
+def fetch_filtered_news(keyword, max_count=5):
+    feed = feedparser.parse("https://rss.donga.com/total.xml")
+    keyword = keyword.lower()
+    filtered = []
+    for entry in feed.entries:
+        title = re.sub(r'<[^>]+>', '', entry.title)
+        if keyword in title.lower():
+            filtered.append({
+                "title": title,
+                "image": extract_image_from_entry(entry),
+                "link": entry.link
+            })
+        if len(filtered) >= max_count:
+            break
+    return filtered
+
+@app.route("/news/search", methods=["POST"])
+def search_news():
+    user_input = request.json["userRequest"]["utterance"]
+    articles = fetch_filtered_news(user_input)
+    if not articles:
+        items = [{
+            "title": f"'{user_input}' 관련 뉴스를 찾지 못했습니다.",
+            "imageUrl": "https://via.placeholder.com/200",
+            "link": {"web": "https://www.donga.com/news/"}
+        }]
+    else:
+        items = [{
+            "title": a["title"],
+            "imageUrl": a["image"],
+            "link": {"web": a["link"]}
+        } for a in articles]
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "listCard": {
+                    "header": {"title": f"'{user_input}' 관련 뉴스 TOP {len(items)}"},
+                    "items": items,
+                    "buttons": [{
+                        "label": "동아일보 전체 보기",
+                        "action": "webLink",
+                        "webLinkUrl": "https://www.donga.com/news/"
+                    }]
+                }
+            }]
+        }
+    })
+
 # 주요 카테고리별 라우트
 @app.route("/news/politics", methods=["POST"])
 def politics():
@@ -90,10 +141,9 @@ def sports():
 def entertainment():
     return list_card_response("엔터테인먼트", "https://rss.donga.com/sportsdonga/entertainment.xml", "https://sports.donga.com/Entertainment")
 
-# 상태 확인 라우트 (GET + HEAD)
 @app.route("/", methods=["GET", "HEAD"])
 def health():
-    return "카카오 뉴스봇(RSS 최적화) 정상 작동 중입니다."
+    return "카카오 뉴스봇(RSS 최적화 + 자유 검색 포함) 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
