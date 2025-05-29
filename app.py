@@ -10,10 +10,10 @@ def extract_image_from_entry(entry):
             if 'url' in media:
                 return media['url']
 
-    desc = entry.get("summary", "") or entry.get("description", "")
-    match = re.search(r'<img[^>]+src="([^">]+)"', desc)
-    if match:
-        return match.group(1)
+    # desc = entry.get("summary", "") or entry.get("description", "")
+    # match = re.search(r'<img[^>]+src="([^">]+)"', desc)
+    # if match:
+    #     return match.group(1)
 
     return "https://t1.daumcdn.net/media/img-section/news_card_default.png"
 
