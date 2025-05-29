@@ -82,7 +82,7 @@ def world():
 
 @app.route("/news/science", methods=["POST"])
 def science():
-    return list_card_response("의학과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/Science")
+    return list_card_response("의학과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
 
 @app.route("/news/culture", methods=["POST"])
 def culture():
