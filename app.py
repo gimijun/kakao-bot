@@ -5,9 +5,10 @@ import re
 app = Flask(__name__)
 
 def extract_image_from_entry(entry):
-    media_content = entry.get("media_content", [])
-    if media_content and "url" in media_content[0]:
-        return media_content[0]["url"]
+    if 'media_content' in entry:
+        for media in entry.media_content:
+            if 'url' in media:
+                return media['url']
 
     desc = entry.get("summary", "") or entry.get("description", "")
     match = re.search(r'<img[^>]+src="([^">]+)"', desc)
@@ -62,33 +63,42 @@ def list_card_response(title, rss_url, web_url):
         }
     })
 
-# 라우트 등록
+# 주요 카테고리별 라우트
 @app.route("/news/politics", methods=["POST"])
-def politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
+def politics():
+    return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
 @app.route("/news/economy", methods=["POST"])
-def economy(): return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
+def economy():
+    return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
 
 @app.route("/news/society", methods=["POST"])
-def society(): return list_card_response("사회", "https://rss.donga.com/society.xml", "https://www.donga.com/news/Society")
-
-@app.route("/news/culture", methods=["POST"])
-def culture(): return list_card_response("문화", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
+def society():
+    return list_card_response("사회", "https://rss.donga.com/national.xml", "https://www.donga.com/news/National")
 
 @app.route("/news/world", methods=["POST"])
-def world(): return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
+def world():
+    return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
 
-@app.route("/news/it", methods=["POST"])
-def it(): return list_card_response("IT/과학", "https://rss.donga.com/it.xml", "https://www.donga.com/news/It")
+@app.route("/news/science", methods=["POST"])
+def science():
+    return list_card_response("의학과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/Science")
 
-@app.route("/news/entertainment", methods=["POST"])
-def entertainment(): return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
+@app.route("/news/culture", methods=["POST"])
+def culture():
+    return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
 
 @app.route("/news/sports", methods=["POST"])
-def sports(): return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
+def sports():
+    return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
+
+@app.route("/news/entertainment", methods=["POST"])
+def entertainment():
+    return list_card_response("엔터테인먼트", "https://rss.donga.com/sportsdonga/entertainment.xml", "https://sports.donga.com/Entertainment")
 
 @app.route("/", methods=["GET"])
-def health(): return "카카오 뉴스봇(RSS) 정상 작동 중입니다."
+def health():
+    return "카카오 뉴스봇(RSS 최적화) 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
