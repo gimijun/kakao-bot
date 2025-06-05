@@ -159,31 +159,39 @@ def news_entertainment():
 
 # 검색 라우팅
 @app.route("/news/search", methods=["POST"])
-def news_search():
+
+@app.route("/news/search", methods=["POST"])
+def news_search_with_context():
     body = request.get_json()
-    print("[DEBUG] 받은 body:", body)  # 디버깅용 로그
-    if not body:
+    print("[DEBUG] 받은 body:", body)
+
+    # 컨텍스트 확인 (이전 대화 상태 확인)
+    is_waiting_for_keyword = False
+    if "contexts" in body:
+        for context in body["contexts"]:
+            if context["name"] == "news_search_context" and context["params"].get("state") == "waiting_for_keyword":
+                is_waiting_for_keyword = True
+                break
+
+    keyword = ""
+    if is_waiting_for_keyword and "userRequest" in body:
+        # 사용자의 발화를 직접 키워드로 사용
+        keyword = body["userRequest"].get("utterance", "").strip()
+        # 또는 'input' 파라미터 등으로 받은 값 사용
+        # keyword = body["action"]["params"].get("input", "").strip() 
+        
+    print("[DEBUG] keyword:", keyword)
+
+    if not keyword:
         return jsonify({
             "version": "2.0",
             "template": {
                 "outputs": [{
-                    "simpleText": {"text": "검색 요청 본문이 없습니다."}
+                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
                 }]
             }
         })
-
-    keyword = body.get("검색어", "").strip()
-    print("[DEBUG] keyword:", keyword)
-
-    # if not keyword:
-    #     return jsonify({
-    #         "version": "2.0",
-    #         "template": {
-    #             "outputs": [{
-    #                 "simpleText": {"text": "검색어를 입력해 주세요."}
-    #             }]
-    #         }
-    #     })
+        
     return search_news_response(keyword)
 
 # 헬스 체크
