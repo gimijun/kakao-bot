@@ -126,7 +126,7 @@ def list_card_response(title, rss_url, web_url):
                     "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
                     "items": items,
                     "buttons": [{
-                        "label": "전체 보기",
+                        "label": "더보기",
                         "action": "webLink",
                         "webLinkUrl": web_url
                     }]
@@ -158,7 +158,7 @@ def trending_card_response(title, web_url):
                     "header": {"title": f"{title} TOP {len(items)}"},
                     "items": items,
                     "buttons": [{
-                        "label": "전체 보기",
+                        "label": "더보기",
                         "action": "webLink",
                         "webLinkUrl": web_url
                     }]
@@ -190,7 +190,7 @@ def search_news_response(keyword, max_count=5):
                     "header": {"title": f"'{keyword}' 검색 결과"},
                     "items": items,
                     "buttons": [{
-                        "label": "동아일보에서 더보기",
+                        "label": "더보기",
                         "action": "webLink",
                         "webLinkUrl": f"https://www.donga.com/news/search?query={keyword}"
                     }]
