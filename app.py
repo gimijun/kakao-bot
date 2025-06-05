@@ -51,6 +51,30 @@ def fetch_donga_search_news(keyword, max_count=5):
         })
     return news_items
 
+def fetch_donga_trending_news(url, max_count=5):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    res = requests.get(url, headers=headers, timeout=10)
+    if res.status_code != 200:
+        return []
+
+    soup = BeautifulSoup(res.text, "html.parser")
+    articles = soup.select("div.list > ul > li")
+    news_items = []
+
+    for item in articles[:max_count]:
+        title_tag = item.select_one("a")
+        image_tag = item.select_one("img")
+        title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
+        link = "https:" + title_tag["href"] if title_tag else "#"
+        image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
+        news_items.append({
+            "title": title,
+            "image": image,
+            "link": link
+        })
+
+    return news_items
+
 def list_card_response(title, rss_url, web_url):
     articles = fetch_rss_news(rss_url)
     if not articles:
@@ -83,8 +107,40 @@ def list_card_response(title, rss_url, web_url):
         }
     })
 
-def search_news_response(keyword):
-    articles = fetch_donga_search_news(keyword)
+def trending_card_response(title, web_url):
+    articles = fetch_donga_trending_news(web_url)
+    if not articles:
+        items = [{
+            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
+            "imageUrl": "https://via.placeholder.com/200",
+            "link": {"web": web_url}
+        }]
+    else:
+        items = [{
+            "title": a["title"],
+            "imageUrl": a["image"],
+            "link": {"web": a["link"]}
+        } for a in articles]
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "listCard": {
+                    "header": {"title": f"{title} TOP {len(items)}"},
+                    "items": items,
+                    "buttons": [{
+                        "label": "전체 보기",
+                        "action": "webLink",
+                        "webLinkUrl": web_url
+                    }]
+                }
+            }]
+        }
+    })
+
+def search_news_response(keyword, max_count=5):
+    articles = fetch_donga_search_news(keyword, max_count=max_count)
     if not articles:
         items = [{
             "title": f"'{keyword}' 관련 뉴스를 불러오지 못했습니다.",
@@ -121,6 +177,9 @@ def search_by_user_input():
     keyword = body.get("action", {}).get("params", {}).get("keyword", "").strip()
 
     if not keyword:
+        keyword = body.get("userRequest", {}).get("utterance", "").strip()
+
+    if not keyword:
         return jsonify({
             "version": "2.0",
             "template": {
@@ -130,9 +189,9 @@ def search_by_user_input():
             }
         })
 
-    return search_news_response(keyword)
+    return search_news_response(keyword, max_count=5)
 
-# 카테고리별 뉴스
+# 카테고리별 RSS 뉴스
 @app.route("/news/politics", methods=["POST"])
 def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
@@ -157,11 +216,12 @@ def news_sports(): return list_card_response("스포츠", "https://rss.donga.com
 @app.route("/news/entertainment", methods=["POST"])
 def news_entertainment(): return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
 
+# 요즘 뜨는 뉴스, 많이 본 뉴스 (비RSS)
 @app.route("/news/trending", methods=["POST"])
-def trending_daily(): return list_card_response("요즘 뜨는 뉴스", "https://rss.donga.com/trend/daily.xml", "https://www.donga.com/news/TrendNews/daily")
+def trending_daily(): return trending_card_response("요즘 뜨는 뉴스", "https://www.donga.com/news/TrendNews/daily")
 
 @app.route("/news/popular", methods=["POST"])
-def trending_monthly(): return list_card_response("많이 본 뉴스", "https://rss.donga.com/trend/monthly.xml", "https://www.donga.com/news/TrendNews/monthly")
+def trending_monthly(): return trending_card_response("많이 본 뉴스", "https://www.donga.com/news/TrendNews/monthly")
 
 @app.route("/", methods=["GET"])
 def health():
