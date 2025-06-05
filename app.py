@@ -161,8 +161,18 @@ def news_entertainment():
 @app.route("/news/search", methods=["POST"])
 def news_search():
     body = request.get_json()
-    print("[DEBUG] 받은 body:", body)  # <-- 디버깅용 로그 추가
-    keyword = body.get("검색어", "").strip() if body else ""
+    print("[DEBUG] 받은 body:", body)  # 디버깅용 로그
+    if not body:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": "검색 요청 본문이 없습니다."}
+                }]
+            }
+        })
+
+    keyword = body.get("검색어", "").strip()
     print("[DEBUG] keyword:", keyword)
 
     if not keyword:
