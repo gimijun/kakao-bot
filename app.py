@@ -158,7 +158,22 @@ def news_entertainment():
     return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
 
 # 검색 라우팅
-@app.route("/news/search", methods=["POST"])
+@app.route("/news/ask_keyword", methods=["POST"])
+def ask_keyword():
+    # 사용자에게 키워드를 입력하라는 메시지 반환
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "simpleText": {"text": "어떤 뉴스를 검색하시겠어요?"}
+            }]
+        },
+        "context": { # 대화 상태 저장
+            "values": [
+                {"name": "news_search_context", "lifeSpan": 3, "params": {"state": "waiting_for_keyword"}}
+            ]
+        }
+    })
 
 @app.route("/news/search", methods=["POST"])
 def news_search_with_context():
@@ -182,15 +197,15 @@ def news_search_with_context():
         
     print("[DEBUG] keyword:", keyword)
 
-    # if not keyword:
-    #     return jsonify({
-    #         "version": "2.0",
-    #         "template": {
-    #             "outputs": [{
-    #                 "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
-    #             }]
-    #         }
-    #     })
+    if not keyword:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
+                }]
+            }
+        })
         
     return search_news_response(keyword)
 
