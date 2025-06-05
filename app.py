@@ -160,47 +160,47 @@ def news_entertainment():
 # 검색 라우팅
 @app.route("/news/ask_keyword", methods=["POST"])
 def ask_keyword():
-#     # 사용자에게 키워드를 입력하라는 메시지 반환
-#     return jsonify({
-#         "version": "2.0",
-#         "template": {
-#             "outputs": [{
-#                 "simpleText": {"text": "어떤 뉴스를 검색하시겠어요?"}
-#             }]
-#         }
-#     })
+    # 사용자에게 키워드를 입력하라는 메시지 반환
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "simpleText": {"text": "어떤 뉴스를 검색하시겠어요?"}
+            }]
+        }
+    })
 
-# @app.route("/news/search", methods=["POST"])
-# def news_search_with_context():
-#     body = request.get_json()
-#     print("[DEBUG] 받은 body:", body)
+@app.route("/news/search", methods=["POST"])
+def news_search_with_context():
+    body = request.get_json()
+    print("[DEBUG] 받은 body:", body)
 
-#     # 컨텍스트 확인 (이전 대화 상태 확인)
-#     is_waiting_for_keyword = False
-#     if "contexts" in body:
-#         for context in body["contexts"]:
-#             if context["name"] == "news_search_context" and context["params"].get("state") == "waiting_for_keyword":
-#                 is_waiting_for_keyword = True
-#                 break
+    # 컨텍스트 확인 (이전 대화 상태 확인)
+    is_waiting_for_keyword = False
+    if "contexts" in body:
+        for context in body["contexts"]:
+            if context["name"] == "news_search_context" and context["params"].get("state") == "waiting_for_keyword":
+                is_waiting_for_keyword = True
+                break
 
-#     keyword = ""
-#     if is_waiting_for_keyword and "userRequest" in body:
-#         # 사용자의 발화를 직접 키워드로 사용
-#         keyword = body["userRequest"].get("utterance", "").strip()
-#         # 또는 'input' 파라미터 등으로 받은 값 사용
-#         # keyword = body["action"]["params"].get("input", "").strip() 
+    keyword = ""
+    if is_waiting_for_keyword and "userRequest" in body:
+        # 사용자의 발화를 직접 키워드로 사용
+        keyword = body["userRequest"].get("utterance", "").strip()
+        # 또는 'input' 파라미터 등으로 받은 값 사용
+        # keyword = body["action"]["params"].get("input", "").strip() 
         
-#     print("[DEBUG] keyword:", keyword)
+    print("[DEBUG] keyword:", keyword)
 
-#     if not keyword:
-#         return jsonify({
-#             "version": "2.0",
-#             "template": {
-#                 "outputs": [{
-#                     "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
-#                 }]
-#             }
-#         })
+    if not keyword:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
+                }]
+            }
+        })
         
     return search_news_response(keyword)
 
