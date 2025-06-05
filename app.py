@@ -6,7 +6,6 @@ import re
 
 app = Flask(__name__)
 
-# RSS 이미지 추출
 def extract_image_from_entry(entry):
     if hasattr(entry, 'media_content'):
         for media in entry.media_content:
@@ -14,7 +13,6 @@ def extract_image_from_entry(entry):
                 return media['url']
     return "https://t1.daumcdn.net/media/img-section/news_card_default.png"
 
-# RSS 뉴스 파싱
 def fetch_rss_news(rss_url, max_count=5):
     feed = feedparser.parse(rss_url)
     news_items = []
@@ -29,7 +27,6 @@ def fetch_rss_news(rss_url, max_count=5):
         })
     return news_items
 
-# 동아일보 검색 결과 크롤링
 def fetch_donga_search_news(keyword, max_count=5):
     url = f"https://www.donga.com/news/search?query={keyword}"
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -54,7 +51,6 @@ def fetch_donga_search_news(keyword, max_count=5):
         })
     return news_items
 
-# listCard 응답 포맷
 def list_card_response(title, rss_url, web_url):
     articles = fetch_rss_news(rss_url)
     if not articles:
@@ -87,7 +83,6 @@ def list_card_response(title, rss_url, web_url):
         }
     })
 
-# 검색 결과 listCard 응답
 def search_news_response(keyword):
     articles = fetch_donga_search_news(keyword)
     if not articles:
@@ -120,7 +115,24 @@ def search_news_response(keyword):
         }
     })
 
-# 카테고리별 뉴스 라우터
+@app.route("/news/ask_keyword", methods=["POST"])
+def search_by_user_input():
+    body = request.get_json()
+    keyword = body.get("action", {}).get("params", {}).get("keyword", "").strip()
+
+    if not keyword:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 입력해 주세요."}
+                }]
+            }
+        })
+
+    return search_news_response(keyword)
+
+# 카테고리별 뉴스
 @app.route("/news/politics", methods=["POST"])
 def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
@@ -150,27 +162,6 @@ def trending_daily(): return list_card_response("요즘 뜨는 뉴스", "https:/
 
 @app.route("/news/popular", methods=["POST"])
 def trending_monthly(): return list_card_response("많이 본 뉴스", "https://rss.donga.com/trend/monthly.xml", "https://www.donga.com/news/TrendNews/monthly")
-
-# 사용자 입력 기반 검색 처리
-@app.route("/news/ask_keyword", methods=["POST"])
-def search_by_user_input():
-    body = request.get_json()
-    keyword = body.get("action", {}).get("params", {}).get("keyword", "").strip()
-
-    if not keyword:
-        keyword = body.get("userRequest", {}).get("utterance", "").strip()
-
-    if not keyword:
-        return jsonify({
-            "version": "2.0",
-            "template": {
-                "outputs": [{
-                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 입력해 주세요."}
-                }]
-            }
-        })
-
-    return search_news_response(keyword)
 
 @app.route("/", methods=["GET"])
 def health():
