@@ -267,144 +267,221 @@ app = Flask(__name__)
 
 # ... (기존 RSS 뉴스 처리 함수들 유지)
 
-@app.route("/news/briefing", methods=["POST"])
-def news_briefing():
-    def fetch_weather_listcard():
-        service_key = os.getenv("WEATHER_API_KEY") or "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
-        base_date = datetime.datetime.now().strftime("%Y%m%d")
-        base_time = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
-        if datetime.datetime.now().minute < 40:
-            base_time -= datetime.timedelta(hours=1)
-        base_time = base_time.strftime("%H%M")
+from flask import Flask, jsonify, request
+import feedparser
+import requests
+from bs4 import BeautifulSoup
+import re
+import json
+import pandas as pd
+from datetime import datetime
 
-        url = (
-            f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?"
-            f"serviceKey={service_key}&numOfRows=1000&pageNo=1&dataType=JSON"
-            f"&base_date={base_date}&base_time={base_time}&nx=60&ny=127"
-        )
+app = Flask(__name__)
 
-        try:
-            res = requests.get(url, timeout=10)
-            items = res.json()['response']['body']['items']['item']
-        except Exception:
-            return {"simpleText": {"text": "날씨 정보를 불러오지 못했습니다."}}
+# 행정구역명 → (nx, ny) 매핑
+location_df = pd.read_excel("/mnt/data/기상청41_단기예보 조회서비스_격자_위경도(2411).xlsx")
+def get_coords(region):
+    row = location_df[location_df['1단계'] == region]
+    if row.empty:
+        return None, None
+    return str(row.iloc[0]['격자 X']), str(row.iloc[0]['격자 Y'])
 
-        data = {item['category']: item['fcstValue'] for item in items}
-
-        def evaluate_dust(value):
-            try:
-                v = int(value)
-                if v <= 15: return "매우 좋음", "대기 상태 최상, 마스크 불필요"
-                elif v <= 30: return "좋음", "야외활동에 지장 없습니다."
-                elif v <= 80: return "보통", "가벼운 마스크 착용 권장"
-                elif v <= 150: return "나쁨", "외출 시 주의하세요."
-                else: return "매우 나쁨", "실내 활동 권장, 외출 자제"
-            except:
-                return "정보 없음", "측정 정보 없음"
-
-        def evaluate_uv(value):
-            try:
-                v = float(value)
-                if v < 2: return "매우 낮음", "자외선 위험도 매우 낮음"
-                elif v < 5: return "낮음", "야외활동 지장 없음"
-                elif v < 7: return "보통", "선크림 권장"
-                elif v < 10: return "높음", "모자/선글라스 착용 필요"
-                else: return "매우 높음", "장시간 야외활동 자제"
-            except:
-                return "정보 없음", "측정 정보 없음"
-
-        def evaluate_sky(value):
-            return {
-                "1": "맑음",
-                "3": "구름 많음",
-                "4": "흐림"
-            }.get(value, "정보 없음")
-
-        def evaluate_rain(value):
-            return {
-                "0": "강수 없음",
-                "1": "비",
-                "2": "비/눈",
-                "3": "눈",
-                "4": "소나기"
-            }.get(value, "정보 없음")
-
-        def evaluate_humidity(value):
-            try:
-                v = int(value)
-                if v < 30: return "매우 낮음"
-                elif v < 50: return "낮음"
-                elif v < 70: return "보통"
-                elif v < 85: return "높음"
-                else: return "매우 높음"
-            except:
-                return "정보 없음"
-
-        temp = data.get('TMP', '?')
-        sky = evaluate_sky(data.get('SKY', '?'))
-        rain = evaluate_rain(data.get('PTY', '?'))
-        weather_desc = f"{sky}, {rain}" if rain != "강수 없음" else sky
-
-        pm10_status, pm10_msg = evaluate_dust(data.get('PM10', '?'))
-        pm25_status, pm25_msg = evaluate_dust(data.get('PM25', '?'))
-        uv_status, uv_msg = evaluate_uv(data.get('UV', '0'))
-        humidity_val = data.get('REH', '?')
-        humidity = evaluate_humidity(humidity_val)
-
-        return {
-            "listCard": {
-                "header": {"title": "☀️ '서울특별시' 현재 날씨"},
-                "items": [
-                    {"title": f"기온 {temp}℃", "description": weather_desc},
-                    {"title": f"미세먼지 {pm10_status}", "description": pm10_msg},
-                    {"title": f"초미세먼지 {pm25_status}", "description": pm25_msg},
-                    {"title": f"자외선 {uv_status}", "description": uv_msg},
-                    {"title": f"습도 {humidity_val}%", "description": humidity}
-                ],
-                "buttons": [
-                    {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
-                    {"label": "전국날씨 보기", "action": "message", "messageText": "전국 날씨 보기"}
-                ]
+@app.route("/weather/change-region", methods=["POST"])
+def weather_by_region():
+    body = request.get_json()
+    region = body.get("action", {}).get("params", {}).get("sys_location", "서울")
+    nx, ny = get_coords(region)
+    if not nx or not ny:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": f"'{region}' 지역의 날씨 정보를 찾을 수 없습니다. 다시 입력해 주세요."}
+                }]
             }
+        })
+
+    try:
+        now = datetime.now()
+        base_date = now.strftime("%Y%m%d")
+        base_time = now.strftime("%H00")
+        service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
+
+        url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+        params = {
+            "serviceKey": service_key,
+            "pageNo": "1",
+            "numOfRows": "100",
+            "dataType": "JSON",
+            "base_date": base_date,
+            "base_time": base_time,
+            "nx": nx,
+            "ny": ny
         }
 
-    def fetch_news_section(title, url):
-        try:
-            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-            soup = BeautifulSoup(res.text, "html.parser")
-            articles = soup.select("section ul li article")
-            news_items = []
-            for item in articles[:3]:
-                h_tag = item.select_one("div h4 a")
-                img_tag = item.select_one("header a div img")
-                link = h_tag['href'] if h_tag and h_tag.has_attr('href') else "#"
-                title_text = h_tag.get_text(strip=True) if h_tag else "제목 없음"
-                img_url = img_tag['src'] if img_tag and img_tag.has_attr('src') else "https://via.placeholder.com/200"
-                news_items.append({"title": title_text, "imageUrl": img_url, "link": {"web": link}})
-            return {
-                "listCard": {
-                    "header": {"title": f"{title} TOP {len(news_items)}"},
-                    "items": news_items,
-                    "buttons": [{"label": "전체 보기", "action": "webLink", "webLinkUrl": url}]
-                }
+        res = requests.get(url, params=params, timeout=5)
+        data = res.json()
+        items = data['response']['body']['items']['item']
+
+        weather = {}
+        for item in items:
+            category = item['category']
+            value = item['obsrValue']
+            if category in ["T1H", "REH", "PM10", "PM25", "UV"]:
+                weather[category] = value
+
+        TMP = weather.get("T1H", "-")
+        REH = weather.get("REH", "-")
+        PM10 = weather.get("PM10", "-")
+        PM25 = weather.get("PM25", "-")
+        UV = weather.get("UV", "-")
+
+    except Exception as e:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": f"날씨 정보를 불러오는 중 오류 발생: {str(e)}"}
+                }]
             }
-        except:
-            return {
-                "simpleText": {"text": f"{title} 섹션을 불러오지 못했습니다."}
-            }
+        })
 
     return jsonify({
         "version": "2.0",
         "template": {
-            "outputs": [
-                fetch_weather_listcard(),
-                fetch_news_section("실시간 뉴스", "https://www.donga.com/news/List"),
-                fetch_news_section("연예", "https://www.donga.com/news/Entertainment/List"),
-                fetch_news_section("스포츠", "https://www.donga.com/news/Sports/List"),
-                fetch_news_section("문화", "https://www.donga.com/news/Culture/List")
+            "outputs": [{
+                "listCard": {
+                    "header": {"title": f"☀️ '{region}' 현재 날씨"},
+                    "items": [
+                        {"title": f"기온 {TMP}℃", "description": ""},
+                        {"title": f"미세먼지 {PM10}", "description": ""},
+                        {"title": f"초미세먼지 {PM25}", "description": ""},
+                        {"title": f"자외선 {UV}", "description": ""},
+                        {"title": f"습도 {REH}%", "description": ""}
+                    ],
+                    "buttons": [
+                        {"label": "다른 지역 보기", "action": "message", "messageText": "지역 변경하기"},
+                        {
+                            "label": "기상청 전국 날씨",
+                            "action": "webLink",
+                            "webLinkUrl": "https://www.weather.go.kr/w/weather/forecast/short-term.do"
+                        }
+                    ]
+                }
+            }]
+        }
+    })
+
+@app.route("/weather/menu", methods=["POST"])
+def weather_menu():
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "simpleText": {
+                    "text": "날씨 정보를 확인할 수 있는 메뉴입니다. 아래에서 원하는 항목을 선택하세요."
+                }
+            }],
+            "quickReplies": [
+                {"label": "서울 날씨", "action": "message", "messageText": "서울 날씨"},
+                {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
+                {
+                    "label": "전국날씨 보기",
+                    "action": "webLink",
+                    "webLinkUrl": "https://www.weather.go.kr/w/weather/forecast/short-term.do"
+                }
             ]
         }
     })
+
+@app.route("/briefing", methods=["POST"])
+def combined_briefing():
+    try:
+        # 날씨 카드 생성 (서울 고정)
+        region = "서울"
+        nx, ny = get_coords(region)
+        now = datetime.now()
+        base_date = now.strftime("%Y%m%d")
+        base_time = now.strftime("%H00")
+        service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
+        url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+        params = {
+            "serviceKey": service_key,
+            "pageNo": "1",
+            "numOfRows": "100",
+            "dataType": "JSON",
+            "base_date": base_date,
+            "base_time": base_time,
+            "nx": nx,
+            "ny": ny
+        }
+        res = requests.get(url, params=params, timeout=5)
+        items = res.json()['response']['body']['items']['item']
+        weather = {item['category']: item['obsrValue'] for item in items if item['category'] in ["T1H", "REH", "PM10", "PM25", "UV"]}
+        TMP = weather.get("T1H", "-")
+        REH = weather.get("REH", "-")
+        PM10 = weather.get("PM10", "-")
+        PM25 = weather.get("PM25", "-")
+        UV = weather.get("UV", "-")
+        weather_card = {
+            "listCard": {
+                "header": {"title": f"☀️ '{region}' 현재 날씨"},
+                "items": [
+                    {"title": f"기온 {TMP}℃", "description": ""},
+                    {"title": f"미세먼지 {PM10}", "description": ""},
+                    {"title": f"초미세먼지 {PM25}", "description": ""},
+                    {"title": f"자외선 {UV}", "description": ""},
+                    {"title": f"습도 {REH}%", "description": ""}
+                ],
+                "buttons": [
+                    {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
+                    {"label": "전국날씨 보기", "action": "webLink", "webLinkUrl": "https://www.weather.go.kr/w/weather/forecast/short-term.do"}
+                ]
+            }
+        }
+
+        # 뉴스 크롤링 (실시간 뉴스)
+        news_url = "https://www.donga.com/news/List"
+        soup = BeautifulSoup(requests.get(news_url, headers={"User-Agent": "Mozilla/5.0"}).text, "html.parser")
+        articles = soup.select("#contents ul.row_list > li > article.news_card")
+        news_items = []
+        for item in articles[:5]:
+            h_tag = item.select_one("div > h4 > a")
+            img_tag = item.select_one("header > a > img")
+            link = h_tag['href'] if h_tag and h_tag.has_attr('href') else "#"
+            title = h_tag.get_text(strip=True) if h_tag else "제목 없음"
+            image = img_tag['src'] if img_tag and img_tag.has_attr('src') else "https://via.placeholder.com/200"
+            if image.startswith("/"):
+                image = "https:" + image
+            news_items.append({"title": title, "imageUrl": image, "link": {"web": link}})
+
+        news_card = {
+            "listCard": {
+                "header": {"title": "📰 실시간 뉴스 TOP 5"},
+                "items": [
+                    {"title": n["title"], "imageUrl": n["imageUrl"], "link": n["link"]} for n in news_items
+                ],
+                "buttons": [
+                    {"label": "전체 뉴스 보기", "action": "webLink", "webLinkUrl": news_url}
+                ]
+            }
+        }
+
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [weather_card, news_card]
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{"simpleText": {"text": f"브리핑 오류: {str(e)}"}}]
+            }
+        })
+
 
 
 @app.route("/", methods=["GET"])
