@@ -152,7 +152,7 @@ def trending_daily(): return list_card_response("요즘 뜨는 뉴스", "https:/
 def trending_monthly(): return list_card_response("많이 본 뉴스", "https://rss.donga.com/trend/monthly.xml", "https://www.donga.com/news/TrendNews/monthly")
 
 # 사용자 입력 기반 검색 처리
-@app.route("/news/search", methods=["POST"])
+@app.route("/news/ask_keyword", methods=["POST"])
 def search_by_user_input():
     body = request.get_json()
     keyword = body.get("action", {}).get("params", {}).get("keyword", "").strip()
