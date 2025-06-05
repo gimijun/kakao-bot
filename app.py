@@ -35,7 +35,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
-    articles = soup.select("div.searchCont > div.searchList > ul > li")
+    articles = soup.select("ul.searchList li")
     news_items = []
 
     for item in articles[:max_count]:
@@ -44,6 +44,8 @@ def fetch_donga_search_news(keyword, max_count=5):
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = title_tag["href"] if title_tag else "#"
         image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
+        if image.startswith("/"):
+            image = "https:" + image
         news_items.append({
             "title": title,
             "image": image,
@@ -67,6 +69,8 @@ def fetch_donga_trending_news(url, max_count=5):
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = "https:" + title_tag["href"] if title_tag else "#"
         image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
+        if image.startswith("/"):
+            image = "https:" + image
         news_items.append({
             "title": title,
             "image": image,
@@ -191,7 +195,6 @@ def search_by_user_input():
 
     return search_news_response(keyword, max_count=5)
 
-# 카테고리별 RSS 뉴스
 @app.route("/news/politics", methods=["POST"])
 def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
@@ -216,7 +219,6 @@ def news_sports(): return list_card_response("스포츠", "https://rss.donga.com
 @app.route("/news/entertainment", methods=["POST"])
 def news_entertainment(): return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
 
-# 요즘 뜨는 뉴스, 많이 본 뉴스 (비RSS)
 @app.route("/news/trending", methods=["POST"])
 def trending_daily(): return trending_card_response("요즘 뜨는 뉴스", "https://www.donga.com/news/TrendNews/daily")
 
