@@ -6,15 +6,15 @@ import re
 
 app = Flask(__name__)
 
-# RSS 기반 기사 이미지 추출
+# 이미지 추출 (RSS에서 media_content 우선, 없으면 기본 이미지)
 def extract_image_from_entry(entry):
-    if 'media_content' in entry:
+    if hasattr(entry, 'media_content'):
         for media in entry.media_content:
             if 'url' in media:
                 return media['url']
     return "https://t1.daumcdn.net/media/img-section/news_card_default.png"
 
-# RSS 기사 가져오기
+# RSS 뉴스 가져오기
 def fetch_rss_news(rss_url, max_count=5):
     feed = feedparser.parse(rss_url)
     news_items = []
@@ -29,40 +29,7 @@ def fetch_rss_news(rss_url, max_count=5):
         })
     return news_items
 
-# 카카오 응답 포맷
-def list_card_response(title, rss_url, web_url):
-    articles = fetch_rss_news(rss_url)
-    if not articles:
-        items = [{
-            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": { "web": web_url }
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": { "web": a["link"] }
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": { "title": f"{title} 뉴스 TOP {len(items)}" },
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }]
-        }
-    })
-
-# 동아일보 키워드 검색용
+# 검색 뉴스 가져오기 (동아일보 검색 결과 크롤링)
 def fetch_donga_search_news(keyword, max_count=5):
     url = f"https://www.donga.com/news/search?query={keyword}"
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -91,13 +58,14 @@ def fetch_donga_search_news(keyword, max_count=5):
         })
     return news_items
 
-def search_news_response(keyword):
-    articles = fetch_donga_search_news(keyword)
+# listCard JSON 응답 생성 (카테고리용)
+def list_card_response(title, rss_url, web_url):
+    articles = fetch_rss_news(rss_url)
     if not articles:
         items = [{
-            "title": f"'{keyword}' 관련 뉴스를 불러오지 못했습니다.",
+            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
             "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": "https://www.donga.com/news/search"}
+            "link": {"web": web_url}
         }]
     else:
         items = [{
@@ -111,7 +79,40 @@ def search_news_response(keyword):
         "template": {
             "outputs": [{
                 "listCard": {
-                    "header": {"title": f"'{keyword}' 관련 동아일보 뉴스"},
+                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
+                    "items": items,
+                    "buttons": [{
+                        "label": "전체 보기",
+                        "action": "webLink",
+                        "webLinkUrl": web_url
+                    }]
+                }
+            }]
+        }
+    })
+
+# listCard JSON 응답 생성 (검색어용)
+def search_news_response(keyword):
+    articles = fetch_donga_search_news(keyword)
+    if not articles:
+        items = [{
+            "title": f"'{keyword}' 관련 뉴스를 불러오지 못했습니다.",
+            "imageUrl": "https://via.placeholder.com/200",
+            "link": {"web": f"https://www.donga.com/news/search?query={keyword}"}
+        }]
+    else:
+        items = [{
+            "title": a["title"],
+            "imageUrl": a["image"],
+            "link": {"web": a["link"]}
+        } for a in articles]
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "listCard": {
+                    "header": {"title": f"'{keyword}' 검색 결과"},
                     "items": items,
                     "buttons": [{
                         "label": "동아일보에서 더보기",
@@ -123,42 +124,62 @@ def search_news_response(keyword):
         }
     })
 
-# RSS 카테고리 라우트
+# 카테고리별 라우팅
 @app.route("/news/politics", methods=["POST"])
-def politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
+def news_politics():
+    return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
 @app.route("/news/economy", methods=["POST"])
-def economy(): return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
+def news_economy():
+    return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
 
 @app.route("/news/society", methods=["POST"])
-def society(): return list_card_response("사회", "https://rss.donga.com/national.xml", "https://www.donga.com/news/National")
+def news_society():
+    return list_card_response("사회", "https://rss.donga.com/national.xml", "https://www.donga.com/news/National")
 
 @app.route("/news/world", methods=["POST"])
-def world(): return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
+def news_world():
+    return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
 
 @app.route("/news/science", methods=["POST"])
-def science(): return list_card_response("의학과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
+def news_science():
+    return list_card_response("IT/과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
 
 @app.route("/news/culture", methods=["POST"])
-def culture(): return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
+def news_culture():
+    return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
 
 @app.route("/news/sports", methods=["POST"])
-def sports(): return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
+def news_sports():
+    return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
 
 @app.route("/news/entertainment", methods=["POST"])
-def entertainment(): return list_card_response("엔터테인먼트", "https://rss.donga.com/sportsdonga/entertainment.xml", "https://sports.donga.com/Entertainment")
+def news_entertainment():
+    return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
 
-# 사용자 검색어 처리
+# 검색 라우팅
 @app.route("/news/search", methods=["POST"])
-def search():
+def news_search():
     body = request.get_json()
-    keyword = body.get("action", {}).get("params", {}).get("검색어", "").strip()
+    print("[DEBUG] 받은 body:", body)  # <-- 디버깅용 로그 추가
+    keyword = body.get("검색어", "").strip() if body else ""
+    print("[DEBUG] keyword:", keyword)
 
+    if not keyword:
+        return jsonify({
+            "version": "2.0",
+            "template": {
+                "outputs": [{
+                    "simpleText": {"text": "검색어를 입력해 주세요."}
+                }]
+            }
+        })
     return search_news_response(keyword)
 
-# 상태 확인
+# 헬스 체크
 @app.route("/", methods=["GET"])
-def health(): return "카카오 뉴스봇(RSS + 검색 최적화) 정상 작동 중입니다."
+def health():
+    return "카카오 뉴스봇(RSS + 검색) 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
