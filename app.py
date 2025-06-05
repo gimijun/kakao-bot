@@ -6,7 +6,7 @@ import re
 
 app = Flask(__name__)
 
-# 이미지 추출 (RSS에서 media_content 우선, 없으면 기본 이미지)
+# RSS 이미지 추출
 def extract_image_from_entry(entry):
     if hasattr(entry, 'media_content'):
         for media in entry.media_content:
@@ -14,7 +14,7 @@ def extract_image_from_entry(entry):
                 return media['url']
     return "https://t1.daumcdn.net/media/img-section/news_card_default.png"
 
-# RSS 뉴스 가져오기
+# RSS 뉴스 파싱
 def fetch_rss_news(rss_url, max_count=5):
     feed = feedparser.parse(rss_url)
     news_items = []
@@ -29,14 +29,12 @@ def fetch_rss_news(rss_url, max_count=5):
         })
     return news_items
 
-# 검색 뉴스 가져오기 (동아일보 검색 결과 크롤링)
+# 동아일보 검색 결과 크롤링
 def fetch_donga_search_news(keyword, max_count=5):
     url = f"https://www.donga.com/news/search?query={keyword}"
     headers = {"User-Agent": "Mozilla/5.0"}
     res = requests.get(url, headers=headers, timeout=10)
-
     if res.status_code != 200:
-        print(f"❌ 검색 요청 실패: {res.status_code}")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -46,11 +44,9 @@ def fetch_donga_search_news(keyword, max_count=5):
     for item in articles[:max_count]:
         title_tag = item.select_one("a.tit")
         image_tag = item.select_one("img")
-
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = title_tag["href"] if title_tag else "#"
         image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
-
         news_items.append({
             "title": title,
             "image": image,
@@ -58,7 +54,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         })
     return news_items
 
-# listCard JSON 응답 생성 (카테고리용)
+# listCard 응답 포맷
 def list_card_response(title, rss_url, web_url):
     articles = fetch_rss_news(rss_url)
     if not articles:
@@ -91,7 +87,7 @@ def list_card_response(title, rss_url, web_url):
         }
     })
 
-# listCard JSON 응답 생성 (검색어용)
+# 검색 결과 listCard 응답
 def search_news_response(keyword):
     articles = fetch_donga_search_news(keyword)
     if not articles:
@@ -124,90 +120,61 @@ def search_news_response(keyword):
         }
     })
 
-# 카테고리별 라우팅
+# 카테고리별 뉴스 라우터
 @app.route("/news/politics", methods=["POST"])
-def news_politics():
-    return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
+def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
 @app.route("/news/economy", methods=["POST"])
-def news_economy():
-    return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
+def news_economy(): return list_card_response("경제", "https://rss.donga.com/economy.xml", "https://www.donga.com/news/Economy")
 
 @app.route("/news/society", methods=["POST"])
-def news_society():
-    return list_card_response("사회", "https://rss.donga.com/national.xml", "https://www.donga.com/news/National")
+def news_society(): return list_card_response("사회", "https://rss.donga.com/national.xml", "https://www.donga.com/news/National")
 
 @app.route("/news/world", methods=["POST"])
-def news_world():
-    return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
+def news_world(): return list_card_response("국제", "https://rss.donga.com/international.xml", "https://www.donga.com/news/Inter")
 
 @app.route("/news/science", methods=["POST"])
-def news_science():
-    return list_card_response("IT/과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
+def news_science(): return list_card_response("IT/과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
 
 @app.route("/news/culture", methods=["POST"])
-def news_culture():
-    return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
+def news_culture(): return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
 
 @app.route("/news/sports", methods=["POST"])
-def news_sports():
-    return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
+def news_sports(): return list_card_response("스포츠", "https://rss.donga.com/sports.xml", "https://www.donga.com/news/Sports")
 
 @app.route("/news/entertainment", methods=["POST"])
-def news_entertainment():
-    return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
+def news_entertainment(): return list_card_response("연예", "https://rss.donga.com/entertainment.xml", "https://www.donga.com/news/Entertainment")
 
-# 검색 라우팅
-@app.route("/news/ask_keyword", methods=["POST"])
-def ask_keyword():
-    # 사용자에게 키워드를 입력하라는 메시지 반환
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "simpleText": {"text": "어떤 뉴스를 검색하시겠어요?"}
-            }]
-        }
-    })
+@app.route("/news/trending", methods=["POST"])
+def trending_daily(): return list_card_response("요즘 뜨는 뉴스", "https://rss.donga.com/trend/daily.xml", "https://www.donga.com/news/TrendNews/daily")
 
+@app.route("/news/popular", methods=["POST"])
+def trending_monthly(): return list_card_response("많이 본 뉴스", "https://rss.donga.com/trend/monthly.xml", "https://www.donga.com/news/TrendNews/monthly")
+
+# 사용자 입력 기반 검색 처리
 @app.route("/news/search", methods=["POST"])
-def news_search_with_context():
+def search_by_user_input():
     body = request.get_json()
-    print("[DEBUG] 받은 body:", body)
+    keyword = body.get("action", {}).get("params", {}).get("keyword", "").strip()
 
-    # 컨텍스트 확인 (이전 대화 상태 확인)
-    is_waiting_for_keyword = False
-    if "contexts" in body:
-        for context in body["contexts"]:
-            if context["name"] == "news_search_context" and context["params"].get("state") == "waiting_for_keyword":
-                is_waiting_for_keyword = True
-                break
-
-    keyword = ""
-    if is_waiting_for_keyword and "userRequest" in body:
-        # 사용자의 발화를 직접 키워드로 사용
-        keyword = body["userRequest"].get("utterance", "").strip()
-        # 또는 'input' 파라미터 등으로 받은 값 사용
-        # keyword = body["action"]["params"].get("input", "").strip() 
-        
-    print("[DEBUG] keyword:", keyword)
+    if not keyword:
+        keyword = body.get("userRequest", {}).get("utterance", "").strip()
 
     if not keyword:
         return jsonify({
             "version": "2.0",
             "template": {
                 "outputs": [{
-                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
+                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 입력해 주세요."}
                 }]
             }
         })
-        
+
     return search_news_response(keyword)
 
-# 헬스 체크
 @app.route("/", methods=["GET"])
 def health():
-    return "카카오 뉴스봇(RSS + 검색) 정상 작동 중입니다."
+    return "카카오 뉴스봇 정상 작동 중입니다."
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
