@@ -36,7 +36,7 @@ def fetch_donga_search_news(keyword, max_count=5):
     }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
-        print(f"[ERROR] HTTP {res.status_code} - 동아일보 접근 실패")
+        print(f"[ERROR] HTTP {res.status_code} - 동아일보 검색 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -44,12 +44,13 @@ def fetch_donga_search_news(keyword, max_count=5):
     news_items = []
 
     for item in articles[:max_count]:
-        title_tag = item.select_one("a.tit")
+        link_tag = item.select_one("a.news_link")
+        title_tag = item.select_one("div.news_tit")
         image_tag = item.select_one("img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-        link = title_tag["href"] if title_tag and title_tag.has_attr("href") else "#"
-        image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
+        link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+        image = image_tag["src"] if image_tag and image_tag.has_attr("src") else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
         if image.startswith("/"):
             image = "https:" + image
 
@@ -67,19 +68,21 @@ def fetch_donga_trending_news(url, max_count=5):
     }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
+        print(f"[ERROR] HTTP {res.status_code} - 동아일보 트렌드 접근 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
-    articles = soup.select("div.list > ul > li")
+    articles = soup.select("div.list ul li article.news_card")
     news_items = []
 
     for item in articles[:max_count]:
-        title_tag = item.select_one("a")
+        link_tag = item.select_one("a.news_link")
+        title_tag = item.select_one("div.news_tit")
         image_tag = item.select_one("img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-        link = "https:" + title_tag["href"] if title_tag else "#"
-        image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
+        link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+        image = image_tag["src"] if image_tag and image_tag.has_attr("src") else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
         if image.startswith("/"):
             image = "https:" + image
 
