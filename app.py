@@ -40,12 +40,12 @@ def fetch_donga_search_news(keyword, max_count=5):
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
-    articles = soup.select("ul.row_list li article.news_card")
+    articles = soup.select("ul.row_list li article")
     news_items = []
 
     for item in articles[:max_count]:
-        link_tag = item.select_one("a.news_link")
-        title_tag = item.select_one("div.news_tit")
+        title_tag = item.select_one("h4")
+        link_tag = item.select_one("a")
         image_tag = item.select_one("img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
@@ -68,16 +68,16 @@ def fetch_donga_trending_news(url, max_count=5):
     }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
-        print(f"[ERROR] HTTP {res.status_code} - 동아일보 트렌드 접근 실패")
+        print(f"[ERROR] HTTP {res.status_code} - 동아일보 트렌드 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
-    articles = soup.select("div.list ul li article.news_card")
+    articles = soup.select("div.list ul li article")
     news_items = []
 
     for item in articles[:max_count]:
-        link_tag = item.select_one("a.news_link")
-        title_tag = item.select_one("div.news_tit")
+        title_tag = item.select_one("h4")
+        link_tag = item.select_one("a")
         image_tag = item.select_one("img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
