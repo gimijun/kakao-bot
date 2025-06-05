@@ -3,9 +3,8 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 import re
-import datetime
 import json
-import os
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -371,16 +370,16 @@ def weather_by_region():
         }
     })
 
-@app.route("/briefing", methods=["POST"])
+@app.route("/news/briefing", methods=["POST"])
 def combined_briefing():
     try:
-        # 날씨 카드 생성 (서울 고정)
         region = "서울"
         nx, ny = get_coords(region)
         now = datetime.now()
         base_date = now.strftime("%Y%m%d")
         base_time = now.strftime("%H00")
-        service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
+        service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+
         url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         params = {
             "serviceKey": service_key,
@@ -392,6 +391,7 @@ def combined_briefing():
             "nx": nx,
             "ny": ny
         }
+
         res = requests.get(url, params=params, timeout=5)
         items = res.json()['response']['body']['items']['item']
         weather = {item['category']: item['obsrValue'] for item in items if item['category'] in ["T1H", "REH", "PM10", "PM25", "UV"]}
@@ -400,6 +400,7 @@ def combined_briefing():
         PM10 = weather.get("PM10", "-")
         PM25 = weather.get("PM25", "-")
         UV = weather.get("UV", "-")
+
         weather_card = {
             "listCard": {
                 "header": {"title": f"☀️ '{region}' 현재 날씨"},
@@ -417,7 +418,6 @@ def combined_briefing():
             }
         }
 
-        # 뉴스 크롤링 (실시간 뉴스)
         news_url = "https://www.donga.com/news/List"
         soup = BeautifulSoup(requests.get(news_url, headers={"User-Agent": "Mozilla/5.0"}).text, "html.parser")
         articles = soup.select("#contents ul.row_list > li > article.news_card")
