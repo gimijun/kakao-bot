@@ -154,16 +154,6 @@ def search():
     body = request.get_json()
     keyword = body.get("action", {}).get("params", {}).get("검색어", "").strip()
 
-    if not keyword:
-        return jsonify({
-            "version": "2.0",
-            "template": {
-                "outputs": [{
-                    "simpleText": { "text": "검색어를 입력해 주세요." }
-                }]
-            }
-        })
-
     return search_news_response(keyword)
 
 # 상태 확인
