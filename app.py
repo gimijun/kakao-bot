@@ -29,32 +29,42 @@ def fetch_rss_news(rss_url, max_count=5):
 
 def fetch_donga_search_news(keyword, max_count=5):
     url = f"https://www.donga.com/news/search?query={keyword}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": "https://www.donga.com/"
+    }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
+        print(f"[ERROR] HTTP {res.status_code} - 동아일보 접근 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
-    articles = soup.select("ul.searchList li")
+    articles = soup.select("ul.row_list li article.news_card")
     news_items = []
 
     for item in articles[:max_count]:
         title_tag = item.select_one("a.tit")
         image_tag = item.select_one("img")
+
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-        link = title_tag["href"] if title_tag else "#"
+        link = title_tag["href"] if title_tag and title_tag.has_attr("href") else "#"
         image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
         if image.startswith("/"):
             image = "https:" + image
+
         news_items.append({
             "title": title,
             "image": image,
             "link": link
         })
+
     return news_items
 
 def fetch_donga_trending_news(url, max_count=5):
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
         return []
@@ -66,11 +76,13 @@ def fetch_donga_trending_news(url, max_count=5):
     for item in articles[:max_count]:
         title_tag = item.select_one("a")
         image_tag = item.select_one("img")
+
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = "https:" + title_tag["href"] if title_tag else "#"
         image = image_tag["src"] if image_tag else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
         if image.startswith("/"):
             image = "https:" + image
+
         news_items.append({
             "title": title,
             "image": image,
