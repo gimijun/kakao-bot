@@ -52,7 +52,7 @@ def fetch_donga_search_news(keyword, max_count=5):
     for item in articles[:max_count]:
         title_tag = item.select_one("h4")
         link_tag = item.select_one("a")
-        image_tag = item.select_one("header a img")
+        image_tag = item.select_one("header a div img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
@@ -219,7 +219,6 @@ def search_by_user_input():
 
     return search_news_response(keyword, max_count=5)
 
-# 카테고리별 뉴스 라우터
 @app.route("/news/politics", methods=["POST"])
 def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
