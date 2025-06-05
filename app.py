@@ -278,13 +278,12 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# 행정구역명 → (nx, ny) 매핑
-location_df = pd.read_excel("/mnt/data/기상청41_단기예보 조회서비스_격자_위경도(2411).xlsx")
+# JSON 파일로부터 지역 → 좌표 정보 로드
+with open("/mnt/data/region_coords.json", encoding="utf-8") as f:
+    region_coords = json.load(f)
+
 def get_coords(region):
-    row = location_df[location_df['1단계'] == region]
-    if row.empty:
-        return None, None
-    return str(row.iloc[0]['격자 X']), str(row.iloc[0]['격자 Y'])
+    return region_coords.get(region, (None, None))
 
 @app.route("/weather/change-region", methods=["POST"])
 def weather_by_region():
@@ -369,28 +368,6 @@ def weather_by_region():
                     ]
                 }
             }]
-        }
-    })
-
-@app.route("/weather/menu", methods=["POST"])
-def weather_menu():
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "simpleText": {
-                    "text": "날씨 정보를 확인할 수 있는 메뉴입니다. 아래에서 원하는 항목을 선택하세요."
-                }
-            }],
-            "quickReplies": [
-                {"label": "서울 날씨", "action": "message", "messageText": "서울 날씨"},
-                {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
-                {
-                    "label": "전국날씨 보기",
-                    "action": "webLink",
-                    "webLinkUrl": "https://www.weather.go.kr/w/weather/forecast/short-term.do"
-                }
-            ]
         }
     })
 
