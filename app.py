@@ -27,16 +27,22 @@ def fetch_rss_news(rss_url, max_count=5):
         })
     return news_items
 
+def clean_image_url(image):
+    if image.startswith("//"):
+        return "https:" + image
+    elif image.startswith("/"):
+        return "https://www.donga.com" + image
+    return image
+
 def fetch_donga_search_news(keyword, max_count=5):
     url = f"https://www.donga.com/news/search?query={keyword}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0",
         "Accept-Language": "ko-KR,ko;q=0.9",
         "Referer": "https://www.donga.com/"
     }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
-        print(f"[ERROR] HTTP {res.status_code} - 동아일보 검색 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -46,13 +52,15 @@ def fetch_donga_search_news(keyword, max_count=5):
     for item in articles[:max_count]:
         title_tag = item.select_one("h4")
         link_tag = item.select_one("a")
-        image_tag = item.select_one("img")
+        image_tag = item.select_one("header a img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
-        image = image_tag["src"] if image_tag and image_tag.has_attr("src") else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
-        if image.startswith("/"):
-            image = "https:" + image
+
+        image = ""
+        if image_tag:
+            image = image_tag.get("src") or image_tag.get("data-src") or ""
+            image = clean_image_url(image)
 
         news_items.append({
             "title": title,
@@ -64,11 +72,10 @@ def fetch_donga_search_news(keyword, max_count=5):
 
 def fetch_donga_trending_news(url, max_count=5):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0"
     }
     res = requests.get(url, headers=headers, timeout=10)
     if res.status_code != 200:
-        print(f"[ERROR] HTTP {res.status_code} - 동아일보 트렌드 실패")
         return []
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -78,13 +85,15 @@ def fetch_donga_trending_news(url, max_count=5):
     for item in articles[:max_count]:
         title_tag = item.select_one("h4")
         link_tag = item.select_one("a")
-        image_tag = item.select_one("img")
+        image_tag = item.select_one("header a img")
 
         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
         link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
-        image = image_tag["src"] if image_tag and image_tag.has_attr("src") else "https://t1.daumcdn.net/media/img-section/news_card_default.png"
-        if image.startswith("/"):
-            image = "https:" + image
+
+        image = ""
+        if image_tag:
+            image = image_tag.get("src") or image_tag.get("data-src") or ""
+            image = clean_image_url(image)
 
         news_items.append({
             "title": title,
@@ -210,6 +219,7 @@ def search_by_user_input():
 
     return search_news_response(keyword, max_count=5)
 
+# 카테고리별 뉴스 라우터
 @app.route("/news/politics", methods=["POST"])
 def news_politics(): return list_card_response("정치", "https://rss.donga.com/politics.xml", "https://www.donga.com/news/Politics")
 
