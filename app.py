@@ -279,9 +279,8 @@ def news_briefing():
             news_items.append({"title": title, "image": image, "link": link})
         return news_items
 
-    def fetch_weather_text():
-        # 기본 서울 (61,127)
-        service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+    def fetch_weather_listcard():
+        service_key = os.getenv("WEATHER_API_KEY") or "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
         base_date = datetime.datetime.now().strftime("%Y%m%d")
         base_time = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
         if datetime.datetime.now().minute < 40:
@@ -298,20 +297,94 @@ def news_briefing():
             res = requests.get(url, timeout=5)
             items = res.json()['response']['body']['items']['item']
         except Exception:
-            return "날씨 정보를 불러오는 데 실패했습니다."
+            return {"simpleText": {"text": "날씨 정보를 불러오지 못했습니다."}}
 
-        result = {"T1H": None, "REH": None, "WSD": None}
-        for item in items:
-            if item['category'] in result:
-                result[item['category']] = item['obsrValue']
+        data = {item['category']: item['obsrValue'] for item in items}
 
-        return (
-            f"☀️ 서울 현재 날씨\n"
-            f"기온: {result['T1H']}℃\n"
-            f"습도: {result['REH']}%\n"
-            f"풍속: {result['WSD']} m/s\n"
-            f"※ 지역별 날씨 보기는 아래 버튼을 눌러주세요."
-        )
+        def evaluate_dust(value):
+            try:
+                v = int(value)
+                if v <= 15: return "매우 좋음", "대기 상태 최상, 마스크 불필요"
+                elif v <= 30: return "좋음", "야외활동에 지장 없습니다."
+                elif v <= 80: return "보통", "가벼운 마스크 착용 권장"
+                elif v <= 150: return "나쁨", "외출 시 주의하세요."
+                else: return "매우 나쁨", "실내 활동 권장, 외출 자제"
+            except:
+                return "정보 없음", "측정 정보 없음"
+
+        def evaluate_uv(value):
+            try:
+                v = float(value)
+                if v < 2: return "매우 낮음", "자외선 위험도 매우 낮음"
+                elif v < 5: return "낮음", "야외활동 지장 없음"
+                elif v < 7: return "보통", "선크림 권장"
+                elif v < 10: return "높음", "모자/선글라스 착용 필요"
+                else: return "매우 높음", "장시간 야외활동 자제"
+            except:
+                return "정보 없음", "측정 정보 없음"
+
+        def evaluate_sky(value):
+            return {
+                "1": "맑음",
+                "3": "구름 많음",
+                "4": "흐림"
+            }.get(value, "정보 없음")
+
+        def evaluate_rain(value):
+            return {
+                "0": "강수 없음",
+                "1": "비",
+                "2": "비/눈",
+                "3": "눈",
+                "4": "소나기"
+            }.get(value, "정보 없음")
+
+        def evaluate_humidity(value):
+            try:
+                v = int(value)
+                if v < 20: return "매우 낮음"
+                elif v < 40: return "낮음"
+                elif v < 60: return "보통"
+                elif v < 80: return "높음"
+                else: return "매우 높음"
+            except:
+                return "정보 없음"
+
+        pm10_status, pm10_msg = evaluate_dust(data.get('PM10', '?'))
+        pm25_status, pm25_msg = evaluate_dust(data.get('PM25', '?'))
+        uv_status, uv_msg = evaluate_uv(data.get('UV', '0'))
+        humidity = evaluate_humidity(data.get('REH', '?'))
+        temp = data.get('T1H', '?')
+        sky = evaluate_sky(data.get('SKY', '?'))
+        rain = evaluate_rain(data.get('PTY', '?'))
+
+        weather_desc = f"{sky}, {rain}" if rain != "강수 없음" else sky
+
+        return {
+            "listCard": {
+                "header": {"title": "☀️ '서울특별시' 현재 날씨"},
+                "items": [
+                    {"title": f"기온 {temp}℃", "description": weather_desc},
+                    {"title": f"미세먼지 {pm10_status}", "description": pm10_msg},
+                    {"title": f"초미세먼지 {pm25_status}", "description": pm25_msg},
+                    {"title": f"자외선 {uv_status}", "description": uv_msg},
+                    {"title": f"습도 {data.get('REH', '?')}%", "description": f"{humidity}"}
+                ],
+                "buttons": [
+                    {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
+                    {"label": "전국날씨 보기", "action": "message", "messageText": "전국 날씨 보기"}
+                ]
+            }
+        }
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [fetch_weather_listcard()]
+        }
+    })
+
+
 
     # 구성할 뉴스 섹션
     sections = [
