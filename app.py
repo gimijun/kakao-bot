@@ -167,11 +167,6 @@ def ask_keyword():
             "outputs": [{
                 "simpleText": {"text": "어떤 뉴스를 검색하시겠어요?"}
             }]
-        },
-        "context": { # 대화 상태 저장
-            "values": [
-                {"name": "news_search_context", "lifeSpan": 3, "params": {"state": "waiting_for_keyword"}}
-            ]
         }
     })
 
