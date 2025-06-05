@@ -249,6 +249,134 @@ def trending_daily(): return trending_card_response("요즘 뜨는 뉴스", "htt
 @app.route("/news/popular", methods=["POST"])
 def trending_monthly(): return trending_card_response("많이 본 뉴스", "https://www.donga.com/news/TrendNews/monthly")
 
+@app.route("/news/briefing", methods=["POST"])
+def news_briefing():
+    def fetch_brief_news(url, max_count=5):
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(res.text, "html.parser")
+        articles = soup.select("section ul li article")
+        news_items = []
+
+        for item in articles[:max_count]:
+            title_tag = item.select_one("div h4 a")
+            image_tag = item.select_one("header a div img")
+
+            title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
+            link = "https:" + title_tag["href"] if title_tag and title_tag.has_attr("href") else "#"
+            image = image_tag["src"] if image_tag else ""
+            if image.startswith("//"):
+                image = "https:" + image
+            elif image.startswith("/"):
+                image = "https://www.donga.com" + image
+
+            news_items.append({"title": title, "image": image, "link": link})
+        return news_items
+
+    def fetch_weather_text():
+        # 기본 서울 (61,127)
+        service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+        base_date = datetime.datetime.now().strftime("%Y%m%d")
+        base_time = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
+        if datetime.datetime.now().minute < 40:
+            base_time -= datetime.timedelta(hours=1)
+        base_time = base_time.strftime("%H%M")
+
+        url = (
+            f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?"
+            f"serviceKey={service_key}&numOfRows=100&pageNo=1&dataType=JSON"
+            f"&base_date={base_date}&base_time={base_time}&nx=60&ny=127"
+        )
+
+        try:
+            res = requests.get(url, timeout=5)
+            items = res.json()['response']['body']['items']['item']
+        except Exception:
+            return "날씨 정보를 불러오는 데 실패했습니다."
+
+        result = {"T1H": None, "REH": None, "WSD": None}
+        for item in items:
+            if item['category'] in result:
+                result[item['category']] = item['obsrValue']
+
+        return (
+            f"☀️ 서울 현재 날씨\n"
+            f"기온: {result['T1H']}℃\n"
+            f"습도: {result['REH']}%\n"
+            f"풍속: {result['WSD']} m/s\n"
+            f"※ 지역별 날씨 보기는 아래 버튼을 눌러주세요."
+        )
+
+    # 구성할 뉴스 섹션
+    sections = [
+        ("📰 실시간 뉴스", "https://www.donga.com/news/List"),
+        ("🎨 문화", "https://www.donga.com/news/Culture/List"),
+        ("🎬 연예", "https://www.donga.com/news/Entertainment/List"),
+        ("🏅 스포츠", "https://www.donga.com/news/Sports/List")
+    ]
+
+    list_cards = []
+
+    for title, url in sections:
+        articles = fetch_brief_news(url)
+        if not articles:
+            items = [{
+                "title": f"{title}를 불러올 수 없습니다.",
+                "imageUrl": "https://via.placeholder.com/200",
+                "link": {"web": url}
+            }]
+        else:
+            items = [{
+                "title": a["title"],
+                "imageUrl": a["image"],
+                "link": {"web": a["link"]}
+            } for a in articles]
+
+        list_cards.append({
+            "listCard": {
+                "header": {"title": f"{title} TOP {len(items)}"},
+                "items": items,
+                "buttons": [{
+                    "label": "전체 보기",
+                    "action": "webLink",
+                    "webLinkUrl": url
+                }]
+            }
+        })
+
+    # 날씨 응답 구성
+    weather_text = fetch_weather_text()
+    list_cards.append({
+        "simpleText": {"text": weather_text}
+    })
+    list_cards.append({
+        "basicCard": {
+            "title": "지역별 날씨 확인",
+            "buttons": [
+                {
+                    "label": "지역 변경하기",
+                    "action": "message",
+                    "messageText": "부산 날씨"
+                },
+                {
+                    "label": "전국 날씨 보기",
+                    "action": "message",
+                    "messageText": "전국 날씨 보기"
+                }
+            ]
+        }
+    })
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": list_cards
+        }
+    })
+
 @app.route("/", methods=["GET"])
 def health():
     return "카카오 뉴스봇 정상 작동 중입니다."
