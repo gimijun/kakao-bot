@@ -182,15 +182,15 @@ def news_search_with_context():
         
     print("[DEBUG] keyword:", keyword)
 
-    if not keyword:
-        return jsonify({
-            "version": "2.0",
-            "template": {
-                "outputs": [{
-                    "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
-                }]
-            }
-        })
+    # if not keyword:
+    #     return jsonify({
+    #         "version": "2.0",
+    #         "template": {
+    #             "outputs": [{
+    #                 "simpleText": {"text": "검색어를 찾을 수 없습니다. 다시 시도해 주세요."}
+    #             }]
+    #         }
+    #     })
         
     return search_news_response(keyword)
 
