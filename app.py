@@ -175,15 +175,15 @@ def news_search():
     keyword = body.get("검색어", "").strip()
     print("[DEBUG] keyword:", keyword)
 
-    if not keyword:
-        return jsonify({
-            "version": "2.0",
-            "template": {
-                "outputs": [{
-                    "simpleText": {"text": "검색어를 입력해 주세요."}
-                }]
-            }
-        })
+    # if not keyword:
+    #     return jsonify({
+    #         "version": "2.0",
+    #         "template": {
+    #             "outputs": [{
+    #                 "simpleText": {"text": "검색어를 입력해 주세요."}
+    #             }]
+    #         }
+    #     })
     return search_news_response(keyword)
 
 # 헬스 체크
