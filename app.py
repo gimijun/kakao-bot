@@ -254,31 +254,21 @@ def trending_monthly(): return trending_card_response("많이 본 뉴스", "http
 
 @app.route("/news/briefing", methods=["POST"])
 def news_briefing():
-    def fetch_brief_news(url, max_count=5):
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code != 200:
-            return []
+    from flask import Flask, jsonify, request
+import feedparser
+import requests
+from bs4 import BeautifulSoup
+import re
+import datetime
+import json
+import os
 
-        soup = BeautifulSoup(res.text, "html.parser")
-        articles = soup.select("section ul li article")
-        news_items = []
+app = Flask(__name__)
 
-        for item in articles[:max_count]:
-            title_tag = item.select_one("div h4 a")
-            image_tag = item.select_one("header a div img")
+# ... (기존 RSS 뉴스 처리 함수들 유지)
 
-            title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-            link = "https:" + title_tag["href"] if title_tag and title_tag.has_attr("href") else "#"
-            image = image_tag["src"] if image_tag else ""
-            if image.startswith("//"):
-                image = "https:" + image
-            elif image.startswith("/"):
-                image = "https://www.donga.com" + image
-
-            news_items.append({"title": title, "image": image, "link": link})
-        return news_items
-
+@app.route("/news/briefing", methods=["POST"])
+def news_briefing():
     def fetch_weather_listcard():
         service_key = os.getenv("WEATHER_API_KEY") or "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
         base_date = datetime.datetime.now().strftime("%Y%m%d")
@@ -288,18 +278,18 @@ def news_briefing():
         base_time = base_time.strftime("%H%M")
 
         url = (
-            f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?"
-            f"serviceKey={service_key}&numOfRows=100&pageNo=1&dataType=JSON"
+            f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?"
+            f"serviceKey={service_key}&numOfRows=1000&pageNo=1&dataType=JSON"
             f"&base_date={base_date}&base_time={base_time}&nx=60&ny=127"
         )
 
         try:
-            res = requests.get(url, timeout=5)
+            res = requests.get(url, timeout=10)
             items = res.json()['response']['body']['items']['item']
         except Exception:
             return {"simpleText": {"text": "날씨 정보를 불러오지 못했습니다."}}
 
-        data = {item['category']: item['obsrValue'] for item in items}
+        data = {item['category']: item['fcstValue'] for item in items}
 
         def evaluate_dust(value):
             try:
@@ -342,23 +332,24 @@ def news_briefing():
         def evaluate_humidity(value):
             try:
                 v = int(value)
-                if v < 20: return "매우 낮음"
-                elif v < 40: return "낮음"
-                elif v < 60: return "보통"
-                elif v < 80: return "높음"
+                if v < 30: return "매우 낮음"
+                elif v < 50: return "낮음"
+                elif v < 70: return "보통"
+                elif v < 85: return "높음"
                 else: return "매우 높음"
             except:
                 return "정보 없음"
 
+        temp = data.get('TMP', '?')
+        sky = evaluate_sky(data.get('SKY', '?'))
+        rain = evaluate_rain(data.get('PTY', '?'))
+        weather_desc = f"{sky}, {rain}" if rain != "강수 없음" else sky
+
         pm10_status, pm10_msg = evaluate_dust(data.get('PM10', '?'))
         pm25_status, pm25_msg = evaluate_dust(data.get('PM25', '?'))
         uv_status, uv_msg = evaluate_uv(data.get('UV', '0'))
-        humidity = evaluate_humidity(data.get('REH', '?'))
-        temp = data.get('T1H', '?')
-        sky = evaluate_sky(data.get('SKY', '?'))
-        rain = evaluate_rain(data.get('PTY', '?'))
-
-        weather_desc = f"{sky}, {rain}" if rain != "강수 없음" else sky
+        humidity_val = data.get('REH', '?')
+        humidity = evaluate_humidity(humidity_val)
 
         return {
             "listCard": {
@@ -368,7 +359,7 @@ def news_briefing():
                     {"title": f"미세먼지 {pm10_status}", "description": pm10_msg},
                     {"title": f"초미세먼지 {pm25_status}", "description": pm25_msg},
                     {"title": f"자외선 {uv_status}", "description": uv_msg},
-                    {"title": f"습도 {data.get('REH', '?')}%", "description": f"{humidity}"}
+                    {"title": f"습도 {humidity_val}%", "description": humidity}
                 ],
                 "buttons": [
                     {"label": "지역 변경하기", "action": "message", "messageText": "지역 변경하기"},
@@ -377,81 +368,44 @@ def news_briefing():
             }
         }
 
+    def fetch_news_section(title, url):
+        try:
+            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
+            soup = BeautifulSoup(res.text, "html.parser")
+            articles = soup.select("section ul li article")
+            news_items = []
+            for item in articles[:3]:
+                h_tag = item.select_one("div h4 a")
+                img_tag = item.select_one("header a div img")
+                link = h_tag['href'] if h_tag and h_tag.has_attr('href') else "#"
+                title_text = h_tag.get_text(strip=True) if h_tag else "제목 없음"
+                img_url = img_tag['src'] if img_tag and img_tag.has_attr('src') else "https://via.placeholder.com/200"
+                news_items.append({"title": title_text, "imageUrl": img_url, "link": {"web": link}})
+            return {
+                "listCard": {
+                    "header": {"title": f"{title} TOP {len(news_items)}"},
+                    "items": news_items,
+                    "buttons": [{"label": "전체 보기", "action": "webLink", "webLinkUrl": url}]
+                }
+            }
+        except:
+            return {
+                "simpleText": {"text": f"{title} 섹션을 불러오지 못했습니다."}
+            }
+
     return jsonify({
         "version": "2.0",
         "template": {
-            "outputs": [fetch_weather_listcard()]
-        }
-    })
-
-
-
-    # 구성할 뉴스 섹션
-    sections = [
-        ("📰 실시간 뉴스", "https://www.donga.com/news/List"),
-        ("🎨 문화", "https://www.donga.com/news/Culture/List"),
-        ("🎬 연예", "https://www.donga.com/news/Entertainment/List"),
-        ("🏅 스포츠", "https://www.donga.com/news/Sports/List")
-    ]
-
-    list_cards = []
-
-    for title, url in sections:
-        articles = fetch_brief_news(url)
-        if not articles:
-            items = [{
-                "title": f"{title}를 불러올 수 없습니다.",
-                "imageUrl": "https://via.placeholder.com/200",
-                "link": {"web": url}
-            }]
-        else:
-            items = [{
-                "title": a["title"],
-                "imageUrl": a["image"],
-                "link": {"web": a["link"]}
-            } for a in articles]
-
-        list_cards.append({
-            "listCard": {
-                "header": {"title": f"{title} TOP {len(items)}"},
-                "items": items,
-                "buttons": [{
-                    "label": "전체 보기",
-                    "action": "webLink",
-                    "webLinkUrl": url
-                }]
-            }
-        })
-
-    # 날씨 응답 구성
-    weather_text = fetch_weather_text()
-    list_cards.append({
-        "simpleText": {"text": weather_text}
-    })
-    list_cards.append({
-        "basicCard": {
-            "title": "지역별 날씨 확인",
-            "buttons": [
-                {
-                    "label": "지역 변경하기",
-                    "action": "message",
-                    "messageText": "부산 날씨"
-                },
-                {
-                    "label": "전국 날씨 보기",
-                    "action": "message",
-                    "messageText": "전국 날씨 보기"
-                }
+            "outputs": [
+                fetch_weather_listcard(),
+                fetch_news_section("실시간 뉴스", "https://www.donga.com/news/List"),
+                fetch_news_section("연예", "https://www.donga.com/news/Entertainment/List"),
+                fetch_news_section("스포츠", "https://www.donga.com/news/Sports/List"),
+                fetch_news_section("문화", "https://www.donga.com/news/Culture/List")
             ]
         }
     })
 
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": list_cards
-        }
-    })
 
 @app.route("/", methods=["GET"])
 def health():
