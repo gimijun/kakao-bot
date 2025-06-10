@@ -849,8 +849,11 @@ def weather_by_region():
     print(f"Received webhook body for /weather/change-region: {json.dumps(body, indent=2)}") # 웹훅 바디 로깅 추가
     sys.stdout.flush()
 
-    # 'sys_location' 대신 'region_name' 파라미터를 사용
-    region = body.get("action", {}).get("params", {}).get("region_name", "서울") # 파라미터명 변경
+    # 'detailParams'에서 'region_name'을 먼저 시도하고, 없으면 'params'에서 시도
+    region = body.get("action", {}).get("detailParams", {}).get("region_name", {}).get("origin", "").strip()
+    if not region: # detailParams.origin이 비어있을 경우 params.region_name 확인
+        region = body.get("action", {}).get("params", {}).get("region_name", "서울").strip()
+
     print(f"Extracted region for /weather/change-region: {region}") # 추출된 지역명 로깅 추가
     sys.stdout.flush()
 
@@ -885,8 +888,11 @@ def news_weather_route():
     print(f"Received webhook body for /news/weather: {json.dumps(body, indent=2)}") # 웹훅 바디 로깅 추가
     sys.stdout.flush()
 
-    # 'sys_location' 대신 'region_name' 파라미터를 사용
-    region = body.get("action", {}).get("params", {}).get("region_name", "서울") # 파라미터명 변경
+    # 'detailParams'에서 'region_name'을 먼저 시도하고, 없으면 'params'에서 시도
+    region = body.get("action", {}).get("detailParams", {}).get("region_name", {}).get("origin", "").strip()
+    if not region: # detailParams.origin이 비어있을 경우 params.region_name 확인
+        region = body.get("action", {}).get("params", {}).get("region_name", "서울").strip()
+
     print(f"Extracted region for /news/weather: {region}") # 추출된 지역명 로깅 추가
     sys.stdout.flush()
     
