@@ -357,473 +357,11 @@ def search_news_response(keyword, max_count=5):
                     }]
                 }
             }],
-            "quickReplies": [ # '알림받기' 바로연결 버튼 추가
-                {
-                    "label": "알림받기",
-                    "action": "block", # 블록으로 연결하여 특정 동작 수행
-                    "blockId": "YOUR_NOTIFICATION_BLOCK_ID", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
-                    "extra": { # 알림 설정 시 키워드를 전달
-                        "keyword": keyword
-                    }
-                },
-                {
-                    "label": "검색", # '검색' 버튼 추가
-                    "action": "message",
-                    "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
-                },
-                {
-                    "label": "정치", # '정치' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "정치 뉴스"
-                },
-                {
-                    "label": "경제", # '경제' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "경제 뉴스"
-                },
-                {
-                    "label": "사회", # '사회' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "사회 뉴스"
-                },
-                {
-                    "label": "국제", # '국제' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "국제 뉴스"
-                },
-                {
-                    "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "IT/과학 뉴스"
-                },
-                {
-                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "문화연예 뉴스"
-                },
-                {
-                    "label": "스포츠", # '스포츠' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "스포츠 뉴스"
-                },
-                {
-                    "label": "연예", # '연예' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "연예 뉴스"
-                }
-            ]
-        }
-    })
-
-# --- 날씨 관련 함수 및 라우트 ---
-
-def get_fine_dust_level(pm_value, is_pm25=False):
-    """미세먼지/초미세먼지 농도에 따른 5단계 등급과 메시지를 반환합니다."""
-    try:
-        pm = float(pm_value)
-        if is_pm25: # 초미세먼지 (PM2.5) 기준
-            if pm <= 8:
-                return "매우좋음", "매우 청정하고 상쾌해요!"
-            elif pm <= 15:
-                return "좋음", "맑은 공기 마시며 활동하기 좋아요."
-            elif pm <= 35:
-                return "보통", "보통 수준의 공기 질입니다."
-            elif pm <= 75:
-                return "나쁨", "실외 활동 시 마스크 착용을 권장해요."
-            else:
-                return "매우나쁨", "모든 연령대 실외 활동 자제!"
-        else: # 미세먼지 (PM10) 기준
-            if pm <= 15:
-                return "매우좋음", "매우 청정하고 상쾌해요!"
-            elif pm <= 30:
-                return "좋음", "야외 활동하기 좋아요."
-            elif pm <= 80:
-                return "보통", "보통 수준의 공기 질입니다."
-            elif pm <= 150:
-                return "나쁨", "마스크 착용을 권장해요."
-            else:
-                return "매우나쁨", "모든 연령대 야외 활동 자제!"
-    except (ValueError, TypeError):
-        return "정보 없음", "미세먼지 정보를 불러올 수 없습니다."
-
-
-def get_humidity_level(reh_value):
-    """습도에 따른 5단계 등급과 메시지를 반환합니다."""
-    try:
-        reh = float(reh_value)
-        if reh <= 30:
-            return "매우낮음", "건조한 날씨! 피부 보습에 신경 써주세요."
-        elif reh <= 40:
-            return "낮음", "피부가 건조해질 수 있어요."
-        elif reh <= 60:
-            return "보통", "쾌적한 습도입니다."
-        elif reh <= 75:
-            return "높음", "습한 날씨가 예상됩니다."
-        else:
-            return "매우높음", "불쾌지수가 높을 수 있어요. 제습에 신경 쓰세요!"
-    except (ValueError, TypeError):
-        return "정보 없음", "습도 정보를 불러올 수 없습니다."
-
-def get_sky_condition(sky_code, pty_code):
-    """하늘 상태(SKY)와 강수 형태(PTY) 코드를 한글 설명으로 변환합니다."""
-    sky_dict = {
-        "1": "맑음",
-        "3": "구름많음",
-        "4": "흐림"
-    }
-    pty_dict = {
-        "0": "", # 강수 없음
-        "1": "비",
-        "2": "비/눈",
-        "3": "눈",
-        "4": "소나기",
-        "5": "빗방울",
-        "6": "빗방울/눈날림",
-        "7": "눈날림"
-    }
-    
-    sky_desc = sky_dict.get(str(sky_code), "알 수 없음")
-    pty_desc = pty_dict.get(str(pty_code), "")
-
-    if pty_desc:
-        return pty_desc # 강수 형태가 있으면 강수 형태 우선
-    return sky_desc # 강수 형태가 없으면 하늘 상태
-
-def get_latest_base_time(current_time):
-    """
-    기상청 초단기실황 API의 base_time을 계산합니다.
-    API는 10분 단위로 자료가 생산되며, 정시 기준 40분 후 발표됩니다.
-    (예: 09시 20분 자료는 10시 00분에 발표)
-    """
-    # 40분 전 시간 계산 (현재 시각으로부터 40분을 뺀 시각이 실제 관측 시각이 됨)
-    adjusted_time = current_time - timedelta(minutes=40)
-    
-    # 분을 10분 단위로 내림 (예: 05:52 -> 05:50)
-    base_minute = (adjusted_time.minute // 10) * 10
-    
-    # 초와 마이크로초는 0으로 설정하여 정확한 base_time (HHMM)을 만듭니다.
-    base_datetime = adjusted_time.replace(minute=base_minute, second=0, microsecond=0)
-    
-    return base_datetime.strftime("%Y%m%d"), base_datetime.strftime("%H%M")
-
-
-def fetch_weather_data(nx, ny, region_full_name="서울"):
-    """
-    기상청 API에서 날씨 데이터를 가져오고, 에어코리아 API에서 미세먼지 데이터를 가져옵니다.
-    """
-    # 기상청 API 서비스 키 (디코딩된 키 사용)
-    # 이 부분을 발급받으신 API 키로 교체해주세요!
-    weather_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
-    weather_service_key = urllib.parse.unquote(weather_service_key_encoded) # 명시적 디코딩
-    
-    # 에어코리아 API 서비스 키 (디코딩된 키 사용)
-    # 이 부분을 발급받으신 API 키로 교체해주세요!
-    airkorea_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
-    airkorea_service_key = urllib.parse.unquote(airkorea_service_key_encoded) # 명시적 디코딩
-
-    weather = {}
-
-    print(f"--- Starting fetch_weather_data for region: {region_full_name} ---")
-    sys.stdout.flush()
-
-    # requests session을 사용하여 SSL 문제 회피 시도
-    session = requests.Session()
-    # 에어코리아 문서를 기반으로 SSL 인증서 검증 비활성화 유지
-    session.verify = False 
-
-    try:
-        # 1. 기상청 초단기 실황 API 호출
-        # Render 서버가 UTC로 설정되어 있을 가능성이 높으므로, KST로 변환
-        KST = timezone(timedelta(hours=9))
-        now_kst = datetime.now(KST)
-
-        base_date, base_time = get_latest_base_time(now_kst.replace(tzinfo=None)) # get_latest_base_time에 naive datetime 전달
-
-        weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
-        weather_params = {
-            "serviceKey": weather_service_key, 
-            "pageNo": "1",
-            "numOfRows": "100",
-            "dataType": "JSON",
-            "base_date": base_date,
-            "base_time": base_time,
-            "nx": nx,
-            "ny": ny
-        }
-
-        print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
-        sys.stdout.flush()
-        weather_res = session.get(weather_url, params=weather_params, timeout=5) # Timeout 5초로 변경
-        print(f"KMA API Response Status Code: {weather_res.status_code}")
-        sys.stdout.flush()
-        weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-        weather_data_json = weather_res.json()
-
-        if weather_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
-            weather_items = weather_data_json['response']['body']['items']['item']
-            for item in weather_items:
-                category = item['category']
-                value = item['obsrValue']
-                if category in ["T1H", "REH", "SKY", "PTY"]: 
-                    weather[category] = value
-            print(f"Successfully fetched KMA weather data: {weather}")
-            sys.stdout.flush()
-        else:
-            error_msg = weather_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 기상청 오류')
-            print(f"KMA API error: {error_msg}. Full Response: {json.dumps(weather_data_json, indent=2)}")
-            sys.stdout.flush()
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching weather data from KMA API: {e}")
-        sys.stdout.flush()
-    except Exception as e:
-        print(f"Error processing KMA weather data: {e}")
-        sys.stdout.flush()
-
-    try:
-        # 2. 에어코리아 대기오염정보 조회 API 호출 (시도별 실시간 측정정보)
-        # sidoName을 위한 매핑: region_full_name에서 광역 시도명 추출
-        main_sido_part = region_full_name.split(' ')[0]
-        sido_mapping = {
-            "서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구",
-            "인천광역시": "인천", "광주광역시": "광주", "대전광역시": "대전",
-            "울산광역시": "울산", "세종특별자치시": "세종", "경기도": "경기",
-            "강원특별자치도": "강원", "충청북도": "충북", "충청남도": "충남",
-            "전라북도": "전북", "전라남도": "전남", "경상북도": "경북",
-            "경상남도": "경남", "제주특별자치도": "제주"
-        }
-        # 매핑된 시도명 사용, 없으면 원본에서 추출한 광역 시도명 그대로 사용 (혹시모를 예외처리)
-        airkorea_sido_name = sido_mapping.get(main_sido_part, main_sido_part)
-        
-        # region_coords.json에 있는 "서울특별시 종로구" 같은 상세 이름이 들어올 경우
-        # airkorea_sido_name에 "서울"만 들어가도록 다시 한번 확인
-        # 이 부분은 sido_mapping으로 충분할 수 있지만, 혹시 모를 경우를 대비
-        if "특별시" in airkorea_sido_name or "광역시" in airkorea_sido_name or "특별자치시" in airkorea_sido_name or "도" in airkorea_sido_name:
-            if "서울" in airkorea_sido_name: airkorea_sido_name = "서울"
-            elif "부산" in airkorea_sido_name: airkorea_sido_name = "부산"
-            elif "대구" in airkorea_sido_name: airkorea_sido_name = "대구"
-            elif "인천" in airkorea_sido_name: airkorea_sido_name = "인천"
-            elif "광주" in airkorea_sido_name: airkorea_sido_name = "광주"
-            elif "대전" in airkorea_sido_name: airkorea_sido_name = "대전"
-            elif "울산" in airkorea_sido_name: airkorea_sido_name = "울산"
-            elif "세종" in airkorea_sido_name: airkorea_sido_name = "세종"
-            elif "경기" in airkorea_sido_name: airkorea_sido_name = "경기"
-            elif "강원" in airkorea_sido_name: airkorea_sido_name = "강원"
-            elif "충북" in airkorea_sido_name: airkorea_sido_name = "충북"
-            elif "충남" in airkorea_sido_name: airkorea_sido_name = "충남"
-            elif "전북" in airkorea_sido_name: airkorea_sido_name = "전북"
-            elif "전남" in airkorea_sido_name: airkorea_sido_name = "전남"
-            elif "경북" in airkorea_sido_name: airkorea_sido_name = "경북"
-            elif "경남" in airkorea_sido_name: airkorea_sido_name = "경남"
-            elif "제주" in airkorea_sido_name: airkorea_sido_name = "제주"
-
-        # 에어코리아 API URL을 HTTP로 변경 (SSL 호환성 문제 해결 시도)
-        airkorea_url = "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
-        airkorea_params = {
-            "serviceKey": airkorea_service_key, # 디코딩된 키 사용
-            "returnType": "json",
-            "numOfRows": "1", 
-            "pageNo": "1",
-            "sidoName": airkorea_sido_name, # 정확히 매핑된 시도명 사용
-            "ver": "1.3" 
-        }
-        
-        print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
-        sys.stdout.flush()
-        airkorea_res = session.get(airkorea_url, params=airkorea_params, timeout=5) # Timeout 5초로 변경
-        print(f"Airkorea API Response Status Code: {airkorea_res.status_code}")
-        sys.stdout.flush()
-        airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-        airkorea_data_json = airkorea_res.json()
-
-        if airkorea_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
-            airkorea_items = airkorea_data_json['response']['body']['items']
-            if airkorea_items:
-                # 에어코리아 API는 시도 내 여러 측정소를 반환할 수 있으므로, 첫 번째 측정소 데이터를 사용합니다.
-                # 더 정확하게 하려면, 해당 시도 내에서 가장 가까운 측정소를 찾아야 합니다.
-                first_station_data = airkorea_items[0] 
-                weather['PM10'] = first_station_data.get('pm10Value')
-                weather['PM25'] = first_station_data.get('pm25Value')
-                print(f"Successfully fetched Airkorea data: PM10={weather.get('PM10')}, PM25={weather.get('PM25')}")
-                sys.stdout.flush()
-            else:
-                print(f"No air quality data found for sidoName: {airkorea_sido_name}. Check API response structure or data availability for this region.")
-                sys.stdout.flush()
-        else:
-            error_msg = airkorea_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 에어코리아 오류')
-            print(f"Airkorea API error: {error_msg}. Full Response: {json.dumps(airkorea_data_json, indent=2)}")
-            sys.stdout.flush()
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching airkorea data: {e}")
-        sys.stdout.flush()
-    except Exception as e:
-        print(f"Error processing airkorea data: {e}")
-        sys.stdout.flush()
-
-    print(f"--- Finished fetch_weather_data. Final weather dict: {weather} ---")
-    sys.stdout.flush()
-    return weather
-
-
-def create_weather_card(region_name, weather_data, web_url):
-    """날씨 데이터를 기반으로 카카오톡 ListCard를 생성합니다."""
-    print(f"--- Starting create_weather_card for region: {region_name} ---")
-    sys.stdout.flush()
-    print(f"Received weather_data in create_weather_card: {weather_data}")
-    sys.stdout.flush()
-
-    # 기온 데이터가 없거나, 날씨 정보가 제대로 파싱되지 않았다면 실패로 간주
-    if not weather_data or not weather_data.get("T1H"): 
-        print(f"Weather data incomplete or missing for {region_name}. Returning error message.")
-        sys.stdout.flush()
-        return {
-            "simpleText": {"text": f"'{region_name}' 지역의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
-        }
-
-    TMP = weather_data.get("T1H", "-")
-    REH = weather_data.get("REH", "-")
-    PM10 = weather_data.get("PM10", "-")
-    PM25 = weather_data.get("PM25", "-") 
-    SKY = weather_data.get("SKY", "1") 
-    PTY = weather_data.get("PTY", "0") 
-
-    # 날씨 상태 문자열 생성
-    weather_condition = get_sky_condition(SKY, PTY)
-    
-    # 미세먼지 등급 및 메시지
-    pm10_level, pm10_msg = get_fine_dust_level(PM10, is_pm25=False)
-    pm25_level, pm25_msg = get_fine_dust_level(PM25, is_pm25=True)
-    
-    # 습도 등급 및 메시지
-    reh_level, reh_msg = get_humidity_level(REH)
-
-    print(f"Generated weather card content for {region_name}")
-    sys.stdout.flush()
-    return {
-        "listCard": {
-            "header": {"title": f"☀️ '{region_name}' 현재 날씨"},
-            "items": [
-                # 기온 항목: 기온과 날씨 상태 함께 표시
-                {"title": f"기온 {TMP}℃, {weather_condition}", "description": ""},
-                # 미세먼지 항목: PM10과 PM25 등급 및 메시지 함께 표시
-                {"title": f"미세먼지: {pm10_level} / 초미세먼지: {pm25_level}", "description": f"PM10: {pm10_msg}\nPM2.5: {pm25_msg}"},
-                # 습도 항목: 등급과 퍼센트 함께 표시
-                {"title": f"습도 {reh_level} ({REH}%)", "description": reh_msg},
-            ],
-            "buttons": [
-                {"label": "다른 지역 보기", "action": "message", "messageText": "지역 변경하기"},
-                {
-                    "label": "기상청 전국 날씨",
-                    "action": "webLink",
-                    "webLinkUrl": "https://www.weather.go.kr/w/weather/forecast/short-term.do" # 고정된 URL 사용
-                }
-            ]
-        }
-    }
-
-
-def list_card_response(title, rss_url, web_url):
-    """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_rss_news(rss_url)
-    if not articles:
-        items = [{
-            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": web_url}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }]
-        }
-    })
-
-def trending_card_response(title, web_url):
-    """트렌딩 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_donga_trending_news(web_url)
-    if not articles:
-        items = [{
-            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": web_url}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"{title} TOP {len(items)}"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }]
-        }
-    })
-
-def search_news_response(keyword, max_count=5):
-    """키워드 검색 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_donga_search_news(keyword, max_count=max_count)
-    if not articles:
-        items = [{
-            "title": f"'{keyword}' 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": f"https://www.donga.com/news/search?query={keyword}"}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"'{keyword}' 검색 결과"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": f"https://www.donga.com/news/search?query={keyword}"
-                    }]
-                }
-            }],
             "quickReplies": [ # '알림받기' 바로연결 버튼 및 기타 카테고리 버튼 추가
                 {
                     "label": "알림받기",
                     "action": "block", # 블록으로 연결하여 특정 동작 수행
-                    "blockId": "YOUR_NOTIFICATION_BLOCK_ID", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
+                    "blockId": "6848b46a938bdf47fcf3b4dc", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
                     "extra": { # 알림 설정 시 키워드를 전달
                         "keyword": keyword
                     }
@@ -831,46 +369,61 @@ def search_news_response(keyword, max_count=5):
                 {
                     "label": "검색", # '검색' 버튼 추가
                     "action": "message",
+                    "blockId": "6840fd4cc5b310190b70166a", # 쉼표 추가
                     "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
                 },
                 {
                     "label": "정치", # '정치' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596834df7f67fcdd66b62", # 쉼표 추가
                     "messageText": "정치 뉴스"
                 },
                 {
                     "label": "경제", # '경제' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596b798b6403c8dad6138", # 쉼표 추가
                     "messageText": "경제 뉴스"
                 },
                 {
                     "label": "사회", # '사회' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596c0e7598b00aa7e6eec", # 쉼표 추가
                     "messageText": "사회 뉴스"
+                },
+                {
+                    "label": "문화", # '문화' 카테고리 버튼 추가 (이전 요청에서 "문화연예"로 변경 요청 있었으나, 여기서는 "문화"로 되어 있어 일단 반영)
+                    "action": "message",
+                    "blockId": "683596e8d9c3e21ccc39943b", # 쉼표 추가
+                    "messageText": "문화연예 뉴스" # messageText는 문화연예로 유지
                 },
                 {
                     "label": "국제", # '국제' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683597142c50e1482b1e05db", # 쉼표 추가
                     "messageText": "국제 뉴스"
                 },
                 {
                     "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "68359701d9c3e21ccc399440", # 쉼표 추가
                     "messageText": "IT/과학 뉴스"
                 },
                 {
-                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가
+                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가 (중복되지만 사용자 제공 스니펫에 따라 추가)
                     "action": "message",
+                    "blockId": "683597362c50e1482b1e05df", # 쉼표 추가
                     "messageText": "문화연예 뉴스"
                 },
                 {
                     "label": "스포츠", # '스포츠' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "68359725938bdf47fcf0d8a4", # 쉼표 추가
                     "messageText": "스포츠 뉴스"
                 },
                 {
                     "label": "연예", # '연예' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "YOUR_ENTERTAINMENT_BLOCK_ID", # 여기에 연예 뉴스 블록 ID를 넣어주세요. (사용자 제공 스니펫에 누락되어 추가)
                     "messageText": "연예 뉴스"
                 }
             ]
@@ -1293,57 +846,63 @@ def search_news_response(keyword, max_count=5):
                 {
                     "label": "검색", # '검색' 버튼 추가
                     "action": "message",
-                    "blockId": "6840fd4cc5b310190b70166a"
+                    "blockId": "6840fd4cc5b310190b70166a", # 쉼표 추가
                     "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
                 },
                 {
                     "label": "정치", # '정치' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "683596834df7f67fcdd66b62"
+                    "blockId": "683596834df7f67fcdd66b62", # 쉼표 추가
                     "messageText": "정치 뉴스"
                 },
                 {
                     "label": "경제", # '경제' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "683596b798b6403c8dad6138"
+                    "blockId": "683596b798b6403c8dad6138", # 쉼표 추가
                     "messageText": "경제 뉴스"
                 },
                 {
                     "label": "사회", # '사회' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "683596c0e7598b00aa7e6eec"
+                    "blockId": "683596c0e7598b00aa7e6eec", # 쉼표 추가
                     "messageText": "사회 뉴스"
                 },
                 {
-                    "label": "문화", # '문화' 카테고리 버튼 추가
+                    "label": "문화", # '문화' 카테고리 버튼 추가 (이전 요청에서 "문화연예"로 변경 요청 있었으나, 여기서는 "문화"로 되어 있어 일단 반영)
                     "action": "message",
-                    "blockId": "683596e8d9c3e21ccc39943b"
-                    "messageText": "국제 뉴스"
+                    "blockId": "683596e8d9c3e21ccc39943b", # 쉼표 추가
+                    "messageText": "문화연예 뉴스" # messageText는 문화연예로 유지
                 },
                 {
                     "label": "국제", # '국제' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "683597142c50e1482b1e05db"
+                    "blockId": "683597142c50e1482b1e05db", # 쉼표 추가
                     "messageText": "국제 뉴스"
                 },
                 {
                     "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "68359701d9c3e21ccc399440"
+                    "blockId": "68359701d9c3e21ccc399440", # 쉼표 추가
                     "messageText": "IT/과학 뉴스"
                 },
                 {
-                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가
+                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가 (중복되지만 사용자 제공 스니펫에 따라 추가)
                     "action": "message",
-                    "blockId": "683597362c50e1482b1e05df"
+                    "blockId": "683597362c50e1482b1e05df", # 쉼표 추가
                     "messageText": "문화연예 뉴스"
                 },
                 {
                     "label": "스포츠", # '스포츠' 카테고리 버튼 추가
                     "action": "message",
-                    "blockId": "68359725938bdf47fcf0d8a4"
+                    "blockId": "68359725938bdf47fcf0d8a4", # 쉼표 추가
                     "messageText": "스포츠 뉴스"
                 },
+                {
+                    "label": "연예", # '연예' 카테고리 버튼 추가
+                    "action": "message",
+                    "blockId": "YOUR_ENTERTAINMENT_BLOCK_ID", # 여기에 연예 뉴스 블록 ID를 넣어주세요. (사용자 제공 스니펫에 누락되어 추가)
+                    "messageText": "연예 뉴스"
+                }
             ]
         }
     })
