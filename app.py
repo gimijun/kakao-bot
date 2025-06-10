@@ -274,14 +274,14 @@ def fetch_donga_trending_news(url, max_count=5):
         return []
 
 
-def common_quick_replies(keyword=None):
+def common_quick_replies(topic=None): # 변경: keyword -> topic
     """모든 뉴스 응답에서 공통으로 사용될 Quick Replies를 생성합니다."""
     quick_replies_list = [
         {
             "label": "알림받기",
             "action": "block",
             "blockId": "6848b46a938bdf47fcf3b4dc", 
-            "extra": {"keyword": keyword} if keyword else {} # 키워드가 있을 경우에만 extra 추가
+            "extra": {"topic": topic} if topic else {} # 변경: keyword -> topic
         },
         {"label": "검색", "action": "message", "messageText": "검색", "blockId": "6840fd4cc5b310190b70166a"},
         {"label": "정치", "action": "message", "messageText": "정치", "blockId": "683596834df7f67fcdd66b62"},
@@ -291,7 +291,7 @@ def common_quick_replies(keyword=None):
         {"label": "국제", "action": "message", "messageText": "국제", "blockId": "683597142c50e1482b1e05db"},
         {"label": "IT 과학", "action": "message", "messageText": "IT 과학", "blockId": "68359701d9c3e21ccc399440"},
         {"label": "스포츠", "action": "message", "messageText": "스포츠", "blockId": "68359725938bdf47fcf0d8a4"},
-        {"label": "연예", "action": "message", "messageText": "연예", "blockId": "683597362c50e1482b1e05df"}
+        {"label": "연예", "action": "message", "messageText": "연예", "blockId": "683597362c50e1482b1e05df"} # 연예 뉴스 블록 ID를 제공된 값으로 변경
     ]
     return quick_replies_list
 
@@ -326,7 +326,7 @@ def list_card_response(title, rss_url, web_url):
                     }]
                 }
             }],
-            "quickReplies": common_quick_replies(keyword=title) # 변경: title을 keyword로 전달
+            "quickReplies": common_quick_replies(topic=title) # 변경: keyword -> topic
         }
     })
 
@@ -347,7 +347,7 @@ def trending_card_response(title, web_url):
         } for a in articles]
 
     return jsonify({
-        "version": "2.0", # 변경: "20" -> "2.0"
+        "version": "2.0", 
         "template": {
             "outputs": [{
                 "listCard": {
@@ -361,7 +361,7 @@ def trending_card_response(title, web_url):
                 }
             }]
         },
-        "quickReplies": common_quick_replies(keyword=title) # 변경: title을 keyword로 전달
+        "quickReplies": common_quick_replies(topic=title) # 변경: keyword -> topic
     })
 
 def search_news_response(keyword, max_count=5):
@@ -394,7 +394,7 @@ def search_news_response(keyword, max_count=5):
                     }]
                 }
             }],
-            "quickReplies": common_quick_replies(keyword=keyword) # 공통 Quick Replies와 키워드 전달
+            "quickReplies": common_quick_replies(topic=keyword) # 변경: keyword -> topic
         }
     })
 
