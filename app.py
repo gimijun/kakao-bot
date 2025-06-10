@@ -95,7 +95,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         "Referer": "https://www.donga.com/"
     }
     try:
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
         res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         soup = BeautifulSoup(res.text, "html.parser")
         
@@ -161,7 +161,7 @@ def fetch_donga_trending_news(url, max_count=5):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
     try:
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
         res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
         
@@ -497,7 +497,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
         sys.stdout.flush()
-        weather_res = session.get(weather_url, params=weather_params, timeout=5) 
+        weather_res = session.get(weather_url, params=weather_params, timeout=5) # Timeout 5초로 변경
         print(f"KMA API Response Status Code: {weather_res.status_code}")
         sys.stdout.flush()
         weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
@@ -573,7 +573,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         
         print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
         sys.stdout.flush()
-        airkorea_res = session.get(airkorea_url, params=airkorea_params, timeout=5) # session 사용
+        airkorea_res = session.get(airkorea_url, params=airkorea_params, timeout=5) # Timeout 5초로 변경
         print(f"Airkorea API Response Status Code: {airkorea_res.status_code}")
         sys.stdout.flush()
         airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
@@ -846,7 +846,14 @@ def trending_monthly():
 def weather_by_region():
     """사용자가 선택한 지역의 날씨 정보를 제공합니다."""
     body = request.get_json()
-    region = body.get("action", {}).get("params", {}).get("sys_location", "서울") # 기본값 서울
+    print(f"Received webhook body for /weather/change-region: {json.dumps(body, indent=2)}") # 웹훅 바디 로깅 추가
+    sys.stdout.flush()
+
+    # 'sys_location' 대신 'region_name' 파라미터를 사용
+    region = body.get("action", {}).get("params", {}).get("region_name", "서울") # 파라미터명 변경
+    print(f"Extracted region for /weather/change-region: {region}") # 추출된 지역명 로깅 추가
+    sys.stdout.flush()
+
     nx, ny = get_coords(region)
 
     if not nx or not ny:
@@ -875,8 +882,13 @@ def weather_by_region():
 def news_weather_route():
     """날씨 정보만 제공합니다 (기본 지역 서울 또는 사용자 지정 지역)."""
     body = request.get_json()
-    # 'sys_location' 파라미터가 있다면 해당 지역을 사용, 없으면 '서울'을 기본값으로 사용
-    region = body.get("action", {}).get("params", {}).get("sys_location", "서울")
+    print(f"Received webhook body for /news/weather: {json.dumps(body, indent=2)}") # 웹훅 바디 로깅 추가
+    sys.stdout.flush()
+
+    # 'sys_location' 대신 'region_name' 파라미터를 사용
+    region = body.get("action", {}).get("params", {}).get("region_name", "서울") # 파라미터명 변경
+    print(f"Extracted region for /news/weather: {region}") # 추출된 지역명 로깅 추가
+    sys.stdout.flush()
     
     nx, ny = get_coords(region)
 
