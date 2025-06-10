@@ -3,7 +3,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import sys # sys 모듈 임포트 (print 플러시용)
 import urllib.parse # URL 디코딩을 위해 추가
@@ -440,21 +440,13 @@ def get_latest_base_time(current_time):
     API는 10분 단위로 자료가 생산되며, 정시 기준 40분 후 발표됩니다.
     (예: 09시 20분 자료는 10시 00분에 발표)
     """
-    # 현재 시각에서 40분을 뺀 시각이 실제 관측 시각이 됩니다.
-    # 안전하게 1시간 전 데이터를 요청하여 누락 가능성을 줄입니다.
-    # 기상청 API의 특성을 고려 (40분 전 데이터가 다음 정각 10분 단위로 발표)
-    
-    # 예: 현재 06:32 -> 40분 전 05:52
-    # 05:52를 10분 단위로 내림 -> 05:50
-    # base_date는 06월 10일, base_time은 0550 (혹은 그 전)
-    
-    # 40분 전 시간 계산
+    # 40분 전 시간 계산 (현재 시각으로부터 40분을 뺀 시각이 실제 관측 시각이 됨)
     adjusted_time = current_time - timedelta(minutes=40)
     
-    # 10분 단위로 내림
+    # 분을 10분 단위로 내림 (예: 05:52 -> 05:50)
     base_minute = (adjusted_time.minute // 10) * 10
     
-    # base_datetime을 10분 단위로 정확히 설정
+    # 초와 마이크로초는 0으로 설정하여 정확한 base_time (HHMM)을 만듭니다.
     base_datetime = adjusted_time.replace(minute=base_minute, second=0, microsecond=0)
     
     return base_datetime.strftime("%Y%m%d"), base_datetime.strftime("%H%M")
@@ -485,8 +477,11 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
     try:
         # 1. 기상청 초단기 실황 API 호출
-        now = datetime.now()
-        base_date, base_time = get_latest_base_time(now) # 개선된 base_time 계산 함수 사용
+        # Render 서버가 UTC로 설정되어 있을 가능성이 높으므로, KST로 변환
+        KST = timezone(timedelta(hours=9))
+        now_kst = datetime.now(KST)
+
+        base_date, base_time = get_latest_base_time(now_kst.replace(tzinfo=None)) # get_latest_base_time에 naive datetime 전달
 
         weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         weather_params = {
@@ -670,7 +665,7 @@ def create_weather_card(region_name, weather_data, web_url):
         }
     }
 
-# 기존 뉴스 관련 함수들 (ListCard 응답 생성)
+
 def list_card_response(title, rss_url, web_url):
     """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
     articles = fetch_rss_news(rss_url)
