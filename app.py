@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import sys # sys 모듈 임포트 (print 플러시용)
 import urllib.parse # URL 디코딩을 위해 추가
+import time # 시간 측정을 위해 time 모듈 임포트
 
 app = Flask(__name__)
 
@@ -58,6 +59,7 @@ def extract_image_from_entry(entry):
 
 def fetch_rss_news(rss_url, max_count=5):
     """지정된 RSS URL에서 뉴스 항목을 가져옵니다."""
+    start_time = time.time() # 시작 시간 기록
     try:
         feed = feedparser.parse(rss_url)
         news_items = []
@@ -71,6 +73,9 @@ def fetch_rss_news(rss_url, max_count=5):
                 "image": image,
                 "link": link
             })
+        end_time = time.time() # 종료 시간 기록
+        print(f"fetch_rss_news from {rss_url} took {end_time - start_time:.2f} seconds.")
+        sys.stdout.flush()
         return news_items
     except Exception as e:
         print(f"Error fetching RSS news from {rss_url}: {e}")
@@ -88,6 +93,7 @@ def clean_image_url(image):
 
 def fetch_donga_search_news(keyword, max_count=5):
     """동아일보에서 키워드 검색 뉴스를 가져옵니다."""
+    start_time = time.time() # 시작 시간 기록
     url = f"https://www.donga.com/news/search?query={keyword}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -145,6 +151,9 @@ def fetch_donga_search_news(keyword, max_count=5):
             print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
             sys.stdout.flush()
 
+        end_time = time.time() # 종료 시간 기록
+        print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
+        sys.stdout.flush()
         return news_items
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Donga search news for '{keyword}': {e}")
@@ -157,6 +166,7 @@ def fetch_donga_search_news(keyword, max_count=5):
 
 def fetch_donga_trending_news(url, max_count=5):
     """동아일보에서 트렌딩 뉴스를 가져옵니다."""
+    start_time = time.time() # 시작 시간 기록
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
@@ -250,6 +260,9 @@ def fetch_donga_trending_news(url, max_count=5):
             print(f"Warning: Could not extract valid news items from trending page {url}. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items, but no valid news_items were created.")
             sys.stdout.flush()
 
+        end_time = time.time() # 종료 시간 기록
+        print(f"fetch_donga_trending_news from {url} took {end_time - start_time:.2f} seconds.")
+        sys.stdout.flush()
         return news_items
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Donga trending news from {url}: {e}")
@@ -259,6 +272,28 @@ def fetch_donga_trending_news(url, max_count=5):
         print(f"Error parsing Donga trending news from {url}: {e}. Raw HTML snippet (first 500 chars): {res.text[:500] if res else 'No response'}")
         sys.stdout.flush()
         return []
+
+
+def common_quick_replies(keyword=None):
+    """모든 뉴스 응답에서 공통으로 사용될 Quick Replies를 생성합니다."""
+    quick_replies_list = [
+        {
+            "label": "알림받기",
+            "action": "block",
+            "blockId": "6848b46a938bdf47fcf3b4dc", 
+            "extra": {"keyword": keyword} if keyword else {} # 키워드가 있을 경우에만 extra 추가
+        },
+        {"label": "검색", "action": "message", "messageText": "뉴스 검색", "blockId": "6840fd4cc5b310190b70166a"},
+        {"label": "정치", "action": "message", "messageText": "정치", "blockId": "683596834df7f67fcdd66b62"},
+        {"label": "경제", "action": "message", "messageText": "경제", "blockId": "683596b798b6403c8dad6138"},
+        {"label": "사회", "action": "message", "messageText": "사회", "blockId": "683596c0e7598b00aa7e6eec"},
+        {"label": "문화", "action": "message", "messageText": "문화", "blockId": "683596e8d9c3e21ccc39943b"},
+        {"label": "국제", "action": "message", "messageText": "국제", "blockId": "683597142c50e1482b1e05db"},
+        {"label": "IT 과학", "action": "message", "messageText": "IT 과학", "blockId": "68359701d9c3e21ccc399440"},
+        {"label": "스포츠", "action": "message", "messageText": "스포츠", "blockId": "68359725938bdf47fcf0d8a4"},
+        {"label": "연예", "action": "message", "messageText": "연예", "blockId": "683597362c50e1482b1e05df"} 
+    ]
+    return quick_replies_list
 
 
 def list_card_response(title, rss_url, web_url):
@@ -290,7 +325,8 @@ def list_card_response(title, rss_url, web_url):
                         "webLinkUrl": web_url
                     }]
                 }
-            }]
+            }],
+            "quickReplies": common_quick_replies() # 공통 Quick Replies 추가
         }
     })
 
@@ -311,7 +347,7 @@ def trending_card_response(title, web_url):
         } for a in articles]
 
     return jsonify({
-        "version": "2.0",
+        "version": "20",
         "template": {
             "outputs": [{
                 "listCard": {
@@ -324,7 +360,8 @@ def trending_card_response(title, web_url):
                     }]
                 }
             }]
-        }
+        },
+        "quickReplies": common_quick_replies() # 공통 Quick Replies 추가
     })
 
 def search_news_response(keyword, max_count=5):
@@ -357,76 +394,7 @@ def search_news_response(keyword, max_count=5):
                     }]
                 }
             }],
-            "quickReplies": [ # '알림받기' 바로연결 버튼 및 기타 카테고리 버튼 추가
-                {
-                    "label": "알림받기",
-                    "action": "block", # 블록으로 연결하여 특정 동작 수행
-                    "blockId": "6848b46a938bdf47fcf3b4dc", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
-                    "extra": { # 알림 설정 시 키워드를 전달
-                        "keyword": keyword
-                    }
-                },
-                {
-                    "label": "검색", # '검색' 버튼 추가
-                    "action": "message",
-                    "blockId": "6840fd4cc5b310190b70166a", # 쉼표 추가
-                    "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
-                },
-                {
-                    "label": "정치", # '정치' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596834df7f67fcdd66b62", # 쉼표 추가
-                    "messageText": "정치 뉴스"
-                },
-                {
-                    "label": "경제", # '경제' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596b798b6403c8dad6138", # 쉼표 추가
-                    "messageText": "경제 뉴스"
-                },
-                {
-                    "label": "사회", # '사회' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596c0e7598b00aa7e6eec", # 쉼표 추가
-                    "messageText": "사회 뉴스"
-                },
-                {
-                    "label": "문화", # '문화' 카테고리 버튼 추가 (이전 요청에서 "문화연예"로 변경 요청 있었으나, 여기서는 "문화"로 되어 있어 일단 반영)
-                    "action": "message",
-                    "blockId": "683596e8d9c3e21ccc39943b", # 쉼표 추가
-                    "messageText": "문화연예 뉴스" # messageText는 문화연예로 유지
-                },
-                {
-                    "label": "국제", # '국제' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683597142c50e1482b1e05db", # 쉼표 추가
-                    "messageText": "국제 뉴스"
-                },
-                {
-                    "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "68359701d9c3e21ccc399440", # 쉼표 추가
-                    "messageText": "IT/과학 뉴스"
-                },
-                {
-                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가 (중복되지만 사용자 제공 스니펫에 따라 추가)
-                    "action": "message",
-                    "blockId": "683597362c50e1482b1e05df", # 쉼표 추가
-                    "messageText": "문화연예 뉴스"
-                },
-                {
-                    "label": "스포츠", # '스포츠' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "68359725938bdf47fcf0d8a4", # 쉼표 추가
-                    "messageText": "스포츠 뉴스"
-                },
-                {
-                    "label": "연예", # '연예' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "YOUR_ENTERTAINMENT_BLOCK_ID", # 여기에 연예 뉴스 블록 ID를 넣어주세요. (사용자 제공 스니펫에 누락되어 추가)
-                    "messageText": "연예 뉴스"
-                }
-            ]
+            "quickReplies": common_quick_replies(keyword=keyword) # 공통 Quick Replies와 키워드 전달
         }
     })
 
@@ -526,6 +494,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
     """
     기상청 API에서 날씨 데이터를 가져오고, 에어코리아 API에서 미세먼지 데이터를 가져옵니다.
     """
+    start_time = time.time() # 시작 시간 기록
     # 기상청 API 서비스 키 (디코딩된 키 사용)
     # 이 부분을 발급받으신 API 키로 교체해주세요!
     weather_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
@@ -568,8 +537,10 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
         sys.stdout.flush()
+        kma_api_start_time = time.time()
         weather_res = session.get(weather_url, params=weather_params, timeout=5) # Timeout 5초로 변경
-        print(f"KMA API Response Status Code: {weather_res.status_code}")
+        kma_api_end_time = time.time()
+        print(f"KMA API call took {kma_api_end_time - kma_api_start_time:.2f} seconds. Status Code: {weather_res.status_code}")
         sys.stdout.flush()
         weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         weather_data_json = weather_res.json()
@@ -645,8 +616,10 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         
         print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
         sys.stdout.flush()
+        airkorea_api_start_time = time.time()
         airkorea_res = session.get(airkorea_url, params=airkorea_params, timeout=5) # Timeout 5초로 변경
-        print(f"Airkorea API Response Status Code: {airkorea_res.status_code}")
+        airkorea_api_end_time = time.time()
+        print(f"Airkorea API call took {airkorea_api_end_time - airkorea_api_start_time:.2f} seconds. Status Code: {airkorea_res.status_code}")
         sys.stdout.flush()
         airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         airkorea_data_json = airkorea_res.json()
@@ -676,7 +649,8 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         print(f"Error processing airkorea data: {e}")
         sys.stdout.flush()
 
-    print(f"--- Finished fetch_weather_data. Final weather dict: {weather} ---")
+    end_time = time.time() # 함수 종료 시간 기록
+    print(f"--- Finished fetch_weather_data. Total time: {end_time - start_time:.2f} seconds. Final weather dict: {weather} ---")
     sys.stdout.flush()
     return weather
 
@@ -710,7 +684,7 @@ def create_weather_card(region_name, weather_data, web_url):
     pm10_level, pm10_msg = get_fine_dust_level(PM10, is_pm25=False)
     pm25_level, pm25_msg = get_fine_dust_level(PM25, is_pm25=True)
     
-    # 습도 등급 및 메시지
+    # 습度 등급 및 메시지
     reh_level, reh_msg = get_humidity_level(REH)
 
     print(f"Generated weather card content for {region_name}")
@@ -737,175 +711,6 @@ def create_weather_card(region_name, weather_data, web_url):
         }
     }
 
-
-def list_card_response(title, rss_url, web_url):
-    """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_rss_news(rss_url)
-    if not articles:
-        items = [{
-            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": web_url}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }]
-        }
-    })
-
-def trending_card_response(title, web_url):
-    """트렌딩 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_donga_trending_news(web_url)
-    if not articles:
-        items = [{
-            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": web_url}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"{title} TOP {len(items)}"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }]
-        }
-    })
-
-def search_news_response(keyword, max_count=5):
-    """키워드 검색 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_donga_search_news(keyword, max_count=max_count)
-    if not articles:
-        items = [{
-            "title": f"'{keyword}' 관련 뉴스를 불러오지 못했습니다.",
-            "imageUrl": "https://via.placeholder.com/200",
-            "link": {"web": f"https://www.donga.com/news/search?query={keyword}"}
-        }]
-    else:
-        items = [{
-            "title": a["title"],
-            "imageUrl": a["image"],
-            "link": {"web": a["link"]}
-        } for a in articles]
-
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"'{keyword}' 검색 결과"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": f"https://www.donga.com/news/search?query={keyword}"
-                    }]
-                }
-            }],
-            "quickReplies": [ # '알림받기' 바로연결 버튼 및 기타 카테고리 버튼 추가
-                {
-                    "label": "알림받기",
-                    "action": "block", # 블록으로 연결하여 특정 동작 수행
-                    "blockId": "6848b46a938bdf47fcf3b4dc", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
-                    "extra": { # 알림 설정 시 키워드를 전달
-                        "keyword": keyword
-                    }
-                },
-                {
-                    "label": "검색", # '검색' 버튼 추가
-                    "action": "message",
-                    "blockId": "6840fd4cc5b310190b70166a", # 쉼표 추가
-                    "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
-                },
-                {
-                    "label": "정치", # '정치' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596834df7f67fcdd66b62", # 쉼표 추가
-                    "messageText": "정치 뉴스"
-                },
-                {
-                    "label": "경제", # '경제' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596b798b6403c8dad6138", # 쉼표 추가
-                    "messageText": "경제 뉴스"
-                },
-                {
-                    "label": "사회", # '사회' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683596c0e7598b00aa7e6eec", # 쉼표 추가
-                    "messageText": "사회 뉴스"
-                },
-                {
-                    "label": "문화", # '문화' 카테고리 버튼 추가 (이전 요청에서 "문화연예"로 변경 요청 있었으나, 여기서는 "문화"로 되어 있어 일단 반영)
-                    "action": "message",
-                    "blockId": "683596e8d9c3e21ccc39943b", # 쉼표 추가
-                    "messageText": "문화연예 뉴스" # messageText는 문화연예로 유지
-                },
-                {
-                    "label": "국제", # '국제' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "683597142c50e1482b1e05db", # 쉼표 추가
-                    "messageText": "국제 뉴스"
-                },
-                {
-                    "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "68359701d9c3e21ccc399440", # 쉼표 추가
-                    "messageText": "IT/과학 뉴스"
-                },
-                {
-                    "label": "문화연예", # '문화연예' 카테고리 버튼 추가 (중복되지만 사용자 제공 스니펫에 따라 추가)
-                    "action": "message",
-                    "blockId": "683597362c50e1482b1e05df", # 쉼표 추가
-                    "messageText": "문화연예 뉴스"
-                },
-                {
-                    "label": "스포츠", # '스포츠' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "68359725938bdf47fcf0d8a4", # 쉼표 추가
-                    "messageText": "스포츠 뉴스"
-                },
-                {
-                    "label": "연예", # '연예' 카테고리 버튼 추가
-                    "action": "message",
-                    "blockId": "YOUR_ENTERTAINMENT_BLOCK_ID", # 여기에 연예 뉴스 블록 ID를 넣어주세요. (사용자 제공 스니펫에 누락되어 추가)
-                    "messageText": "연예 뉴스"
-                }
-            ]
-        }
-    })
 
 # --- 라우트 정의 ---
 
@@ -955,12 +760,15 @@ def news_world():
 @app.route("/news/science", methods=["POST"])
 def news_science():
     """IT/과학 뉴스 요청을 처리합니다."""
-    return list_card_response("IT/과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
+    # 사용자 요청에 따라 "IT 과학"으로 레이블 변경
+    return list_card_response("IT 과학", "https://rss.donga.com/science.xml", "https://www.donga.com/news/It")
 
 @app.route("/news/culture", methods=["POST"])
 def news_culture():
-    """문화연예 뉴스 요청을 처리합니다."""
-    return list_card_response("문화연예", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
+    """문화 뉴스 요청을 처리합니다."""
+    # 사용자 요청에 따라 "문화"로 레이블 변경 및 RSS/웹링크도 문화로 변경 필요
+    # 동아일보 RSS에 '문화' 단독 피드는 보이지 않으므로, '문화연예' 피드를 사용하고 레이블만 '문화'로 표시
+    return list_card_response("문화", "https://rss.donga.com/culture.xml", "https://www.donga.com/news/Culture")
 
 @app.route("/news/sports", methods=["POST"])
 def news_sports():
