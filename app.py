@@ -557,8 +557,11 @@ def weather_by_region():
 # /news/weather 라우트 추가 (기존 /news/briefing 대체)
 @app.route("/news/weather", methods=["POST"])
 def news_weather_route():
-    """날씨 정보만 제공합니다 (기본 지역 서울)."""
-    region = "서울" # 기본 지역은 서울
+    """날씨 정보만 제공합니다 (기본 지역 서울 또는 사용자 지정 지역)."""
+    body = request.get_json()
+    # 'sys_location' 파라미터가 있다면 해당 지역을 사용, 없으면 '서울'을 기본값으로 사용
+    region = body.get("action", {}).get("params", {}).get("sys_location", "서울")
+    
     nx, ny = get_coords(region)
 
     if not nx or not ny:
@@ -566,7 +569,7 @@ def news_weather_route():
             "version": "2.0",
             "template": {
                 "outputs": [{
-                    "simpleText": {"text": f"기본 지역인 '{region}'의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
+                    "simpleText": {"text": f"'{region}' 지역의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
                 }]
             }
         })
