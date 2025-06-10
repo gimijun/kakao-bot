@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime, timedelta
 import json
+import sys # sys 모듈 임포트 (print 플러시용)
 
 app = Flask(__name__)
 
@@ -35,9 +36,11 @@ def get_coords(region_name):
         # 또는 region_name이 "종로구"일 때 "서울특별시 종로구"를 찾기 위함
         if region_name in full_region_name:
             print(f"Found partial match for '{region_name}': '{full_region_name}' -> {coords}")
+            sys.stdout.flush()
             return coords
             
     print(f"Coords not found for region: {region_name}")
+    sys.stdout.flush()
     return None, None
 
 
@@ -69,6 +72,7 @@ def fetch_rss_news(rss_url, max_count=5):
         return news_items
     except Exception as e:
         print(f"Error fetching RSS news from {rss_url}: {e}")
+        sys.stdout.flush()
         return []
 
 def clean_image_url(image):
@@ -137,13 +141,16 @@ def fetch_donga_search_news(keyword, max_count=5):
         
         if not news_items and len(potential_articles) > 0:
             print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
+            sys.stdout.flush()
 
         return news_items
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Donga search news for '{keyword}': {e}")
+        sys.stdout.flush()
         return []
     except Exception as e:
         print(f"Error parsing Donga search news for '{keyword}': {e}")
+        sys.stdout.flush()
         return []
 
 def fetch_donga_trending_news(url, max_count=5):
@@ -179,10 +186,12 @@ def fetch_donga_trending_news(url, max_count=5):
             if found_items:
                 potential_articles = found_items
                 print(f"Found articles with selector: {selector}")
+                sys.stdout.flush()
                 break # 찾았으면 더 이상 시도하지 않음
         
         if not potential_articles:
             print(f"Warning: No potential articles found using any selector for URL: {url}")
+            sys.stdout.flush()
 
 
         for item in potential_articles[:max_count]:
@@ -213,7 +222,7 @@ def fetch_donga_trending_news(url, max_count=5):
 
             image = ""
             if image_tag:
-                image = image_tag.get("src") or image_tag.get("data-src") or ""
+                image = image.get("src") or image_tag.get("data-src") or ""
                 image = clean_image_url(image)
             else:
                 image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
@@ -228,13 +237,16 @@ def fetch_donga_trending_news(url, max_count=5):
         
         if not news_items and len(potential_articles) > 0:
             print(f"Warning: Could not extract valid news items from trending page {url}. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items, but no valid news_items were created.")
+            sys.stdout.flush()
 
         return news_items
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Donga trending news from {url}: {e}")
+        sys.stdout.flush()
         return []
     except Exception as e:
         print(f"Error parsing Donga trending news from {url}: {e}")
+        sys.stdout.flush()
         return []
 
 
@@ -455,17 +467,16 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
     """
     기상청 API에서 날씨 데이터를 가져오고, 에어코리아 API에서 미세먼지 데이터를 가져옵니다.
     """
-    # 기상청 API 서비스 키
-    # 이 부분을 발급받으신 API 키로 교체해주세요!
-    weather_service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+    # 기상청 API 서비스 키 (디코딩된 키 사용)
+    weather_service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
     
-    # 에어코리아 API 서비스 키 (기상청 키와 동일하게 사용)
-    # 이 부분을 발급받으신 API 키로 교체해주세요!
-    airkorea_service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+    # 에어코리아 API 서비스 키 (디코딩된 키 사용)
+    airkorea_service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
 
     weather = {}
 
     print(f"--- Starting fetch_weather_data for region: {region_full_name} ---")
+    sys.stdout.flush()
 
     try:
         # 1. 기상청 초단기 실황 API 호출
@@ -475,7 +486,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         weather_params = {
-            "serviceKey": weather_service_key,
+            "serviceKey": weather_service_key, # 디코딩된 키 사용
             "pageNo": "1",
             "numOfRows": "100",
             "dataType": "JSON",
@@ -486,8 +497,10 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         }
 
         print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
+        sys.stdout.flush()
         weather_res = requests.get(weather_url, params=weather_params, timeout=5)
         print(f"KMA API Response Status Code: {weather_res.status_code}")
+        sys.stdout.flush()
         weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         weather_data_json = weather_res.json()
 
@@ -499,14 +512,18 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
                 if category in ["T1H", "REH", "SKY", "PTY"]: 
                     weather[category] = value
             print(f"Successfully fetched KMA weather data: {weather}")
+            sys.stdout.flush()
         else:
             error_msg = weather_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 기상청 오류')
             print(f"KMA API error: {error_msg}. Full Response: {json.dumps(weather_data_json, indent=2)}")
+            sys.stdout.flush()
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching weather data from KMA API: {e}")
+        sys.stdout.flush()
     except Exception as e:
         print(f"Error processing KMA weather data: {e}")
+        sys.stdout.flush()
 
     try:
         # 2. 에어코리아 대기오염정보 조회 API 호출 (시도별 실시간 측정정보)
@@ -547,7 +564,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         airkorea_url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
         airkorea_params = {
-            "serviceKey": airkorea_service_key,
+            "serviceKey": airkorea_service_key, # 디코딩된 키 사용
             "returnType": "json",
             "numOfRows": "1", 
             "pageNo": "1",
@@ -556,8 +573,10 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         }
         
         print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
+        sys.stdout.flush()
         airkorea_res = requests.get(airkorea_url, params=airkorea_params, timeout=5)
         print(f"Airkorea API Response Status Code: {airkorea_res.status_code}")
+        sys.stdout.flush()
         airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         airkorea_data_json = airkorea_res.json()
 
@@ -570,29 +589,38 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
                 weather['PM10'] = first_station_data.get('pm10Value')
                 weather['PM25'] = first_station_data.get('pm25Value')
                 print(f"Successfully fetched Airkorea data: PM10={weather.get('PM10')}, PM25={weather.get('PM25')}")
+                sys.stdout.flush()
             else:
                 print(f"No air quality data found for sidoName: {airkorea_sido_name}. Check API response structure or data availability for this region.")
+                sys.stdout.flush()
         else:
             error_msg = airkorea_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 에어코리아 오류')
             print(f"Airkorea API error: {error_msg}. Full Response: {json.dumps(airkorea_data_json, indent=2)}")
+            sys.stdout.flush()
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching airkorea data: {e}")
+        sys.stdout.flush()
     except Exception as e:
         print(f"Error processing airkorea data: {e}")
+        sys.stdout.flush()
 
     print(f"--- Finished fetch_weather_data. Final weather dict: {weather} ---")
+    sys.stdout.flush()
     return weather
 
 
 def create_weather_card(region_name, weather_data, web_url):
     """날씨 데이터를 기반으로 카카오톡 ListCard를 생성합니다."""
     print(f"--- Starting create_weather_card for region: {region_name} ---")
+    sys.stdout.flush()
     print(f"Received weather_data in create_weather_card: {weather_data}")
+    sys.stdout.flush()
 
     # 기온 데이터가 없거나, 날씨 정보가 제대로 파싱되지 않았다면 실패로 간주
     if not weather_data or not weather_data.get("T1H"): 
         print(f"Weather data incomplete or missing for {region_name}. Returning error message.")
+        sys.stdout.flush()
         return {
             "simpleText": {"text": f"'{region_name}' 지역의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
         }
@@ -615,6 +643,7 @@ def create_weather_card(region_name, weather_data, web_url):
     reh_level, reh_msg = get_humidity_level(REH)
 
     print(f"Generated weather card content for {region_name}")
+    sys.stdout.flush()
     return {
         "listCard": {
             "header": {"title": f"☀️ '{region_name}' 현재 날씨"},
