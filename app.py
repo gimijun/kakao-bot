@@ -211,8 +211,29 @@ def get_sky_condition(sky_code, pty_code):
         return pty_desc # 강수 형태가 있으면 강수 형태 우선
     return sky_desc # 강수 형태가 없으면 하늘 상태
 
+def get_latest_base_time(current_time):
+    """
+    기상청 초단기실황 API의 base_time을 계산합니다.
+    API는 10분 단위로 자료가 생산되며, 정시 기준 40분 후 발표됩니다.
+    (예: 09시 20분 자료는 10시 00분에 발표)
+    """
+    for i in range(12): # 최대 2시간(120분) 전까지 확인
+        # 현재 시각에서 10분 단위로 거슬러 올라가며 잠재적 관측 시각 계산
+        obs_time = current_time - timedelta(minutes=(i * 10))
+        # 초와 마이크로초를 0으로 설정
+        obs_time = obs_time.replace(second=0, microsecond=0) 
 
-def fetch_weather_data(nx, ny, sido_name="서울"):
+        # 해당 관측 시각의 자료 발표 시각 계산
+        pub_time = obs_time + timedelta(minutes=40)
+
+        # 발표 시각이 현재 시각보다 같거나 이전이면 이 자료가 가장 최신이므로 반환
+        if pub_time <= current_time:
+            return obs_time.strftime("%H%M")
+    
+    # 만약 2시간 동안 유효한 base_time을 찾지 못했다면, 현재 시각으로부터 1시간 전의 정시를 반환 (최후의 보루)
+    return (current_time - timedelta(hours=1)).strftime("%H00") 
+
+def fetch_weather_data(nx, ny, region_full_name="서울"):
     """
     기상청 API에서 날씨 데이터를 가져오고, 에어코리아 API에서 미세먼지 데이터를 가져옵니다.
     """
@@ -227,12 +248,7 @@ def fetch_weather_data(nx, ny, sido_name="서울"):
         # 1. 기상청 초단기 실황 API 호출
         now = datetime.now()
         base_date = now.strftime("%Y%m%d")
-        
-        # 정확한 base_time 계산: 현재 시각에서 40분을 뺀 시각의 시와 분을 10분 단위로 내림
-        adjusted_time = now - timedelta(minutes=40)
-        base_time_hour = adjusted_time.hour
-        base_time_minute = (adjusted_time.minute // 10) * 10
-        base_time = f"{base_time_hour:02d}{base_time_minute:02d}"
+        base_time = get_latest_base_time(now) # 개선된 base_time 계산 함수 사용
 
         weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         weather_params = {
@@ -246,8 +262,9 @@ def fetch_weather_data(nx, ny, sido_name="서울"):
             "ny": ny
         }
 
+        print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
         weather_res = requests.get(weather_url, params=weather_params, timeout=5)
-        weather_res.raise_for_status()
+        weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         weather_data_json = weather_res.json()
 
         if weather_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
@@ -259,7 +276,7 @@ def fetch_weather_data(nx, ny, sido_name="서울"):
                     weather[category] = value
         else:
             error_msg = weather_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 기상청 오류')
-            print(f"Weather API error: {error_msg}")
+            print(f"Weather API error: {error_msg}. Response: {weather_data_json}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching weather data from KMA API: {e}")
@@ -268,32 +285,56 @@ def fetch_weather_data(nx, ny, sido_name="서울"):
 
     try:
         # 2. 에어코리아 대기오염정보 조회 API 호출 (시도별 실시간 측정정보)
+        # sidoName을 위한 매핑
+        main_sido_part = region_full_name.split(' ')[0] # "서울특별시 종로구" -> "서울특별시"
+        sido_mapping = {
+            "서울특별시": "서울",
+            "부산광역시": "부산",
+            "대구광역시": "대구",
+            "인천광역시": "인천",
+            "광주광역시": "광주",
+            "대전광역시": "대전",
+            "울산광역시": "울산",
+            "세종특별자치시": "세종",
+            "경기도": "경기",
+            "강원특별자치도": "강원",
+            "충청북도": "충북",
+            "충청남도": "충남",
+            "전라북도": "전북", 
+            "전라남도": "전남",
+            "경상북도": "경북",
+            "경상남도": "경남",
+            "제주특별자치도": "제주"
+        }
+        # 매핑된 시도명 사용, 없으면 원본 그대로 사용
+        airkorea_sido_name = sido_mapping.get(main_sido_part, main_sido_part)
+
         airkorea_url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
         airkorea_params = {
             "serviceKey": airkorea_service_key,
             "returnType": "json",
-            "numOfRows": "1", # 가장 최근 데이터 1개만 가져오도록 설정
+            "numOfRows": "1", 
             "pageNo": "1",
-            "sidoName": sido_name, # 지역명 사용
-            "ver": "1.3" # 미세먼지 1시간 등급 자료 포함 버전
+            "sidoName": airkorea_sido_name, # 정확히 매핑된 시도명 사용
+            "ver": "1.3" 
         }
         
+        print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
         airkorea_res = requests.get(airkorea_url, params=airkorea_params, timeout=5)
-        airkorea_res.raise_for_status()
+        airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
         airkorea_data_json = airkorea_res.json()
 
         if airkorea_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
             airkorea_items = airkorea_data_json['response']['body']['items']
             if airkorea_items:
-                # 첫 번째 측정소의 데이터를 가져옴 (해당 시도의 대표 측정소 데이터)
                 first_station_data = airkorea_items[0] 
                 weather['PM10'] = first_station_data.get('pm10Value')
                 weather['PM25'] = first_station_data.get('pm25Value')
             else:
-                print(f"No air quality data found for sidoName: {sido_name}")
+                print(f"No air quality data found for sidoName: {airkorea_sido_name}")
         else:
             error_msg = airkorea_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 에어코리아 오류')
-            print(f"Airkorea API error: {error_msg}")
+            print(f"Airkorea API error: {error_msg}. Response: {airkorea_data_json}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching airkorea data: {e}")
@@ -305,7 +346,7 @@ def fetch_weather_data(nx, ny, sido_name="서울"):
 
 def create_weather_card(region_name, weather_data, web_url):
     """날씨 데이터를 기반으로 카카오톡 ListCard를 생성합니다."""
-    if not weather_data:
+    if not weather_data or not weather_data.get("T1H"): # 기온 데이터가 없으면 실패로 간주
         return {
             "simpleText": {"text": f"'{region_name}' 지역의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
         }
@@ -334,7 +375,7 @@ def create_weather_card(region_name, weather_data, web_url):
                 # 기온 항목: 기온과 날씨 상태 함께 표시
                 {"title": f"기온 {TMP}℃, {weather_condition}", "description": ""},
                 # 미세먼지 항목: PM10과 PM25 등급 및 메시지 함께 표시
-                {"title": f"미세먼지: {pm10_level} / 초미세먼지: {pm25_level}", "description": f"미세먼지: {pm10_msg}\n초미세먼지: {pm25_msg}"},
+                {"title": f"미세먼지: {pm10_level} / 초미세먼지: {pm25_level}", "description": f"PM10: {pm10_msg}\nPM2.5: {pm25_msg}"},
                 # 습도 항목: 등급과 퍼센트 함께 표시
                 {"title": f"습도 {reh_level} ({REH}%)", "description": reh_msg},
             ],
