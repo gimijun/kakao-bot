@@ -473,7 +473,8 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
     # requests session을 사용하여 SSL 문제 회피 시도
     session = requests.Session()
-    session.verify = False # SSL 인증서 검증 비활성화 (개발/디버깅 목적)
+    # 에어코리아 문서를 기반으로 SSL 인증서 검증 비활성화 유지
+    session.verify = False 
 
     try:
         # 1. 기상청 초단기 실황 API 호출
@@ -561,7 +562,8 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
             elif "경남" in airkorea_sido_name: airkorea_sido_name = "경남"
             elif "제주" in airkorea_sido_name: airkorea_sido_name = "제주"
 
-        airkorea_url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
+        # 에어코리아 API URL을 HTTP로 변경 (SSL 호환성 문제 해결 시도)
+        airkorea_url = "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
         airkorea_params = {
             "serviceKey": airkorea_service_key, # 디코딩된 키 사용
             "returnType": "json",
