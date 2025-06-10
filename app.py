@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 import json
 import sys # sys 모듈 임포트 (print 플러시용)
+import urllib.parse # URL 디코딩을 위해 추가
 
 app = Flask(__name__)
 
@@ -440,14 +441,21 @@ def get_latest_base_time(current_time):
     (예: 09시 20분 자료는 10시 00분에 발표)
     """
     # 현재 시각에서 40분을 뺀 시각이 실제 관측 시각이 됩니다.
-    obs_time_candidate = current_time - timedelta(minutes=40)
-
-    # 관측 시각의 분을 가장 가까운 10분 단위로 내림하여 base_time을 생성합니다.
-    base_minute = (obs_time_candidate.minute // 10) * 10
+    # 안전하게 1시간 전 데이터를 요청하여 누락 가능성을 줄입니다.
+    # 기상청 API의 특성을 고려 (40분 전 데이터가 다음 정각 10분 단위로 발표)
     
-    # 초와 마이크로초는 0으로 설정하여 정확한 base_time (HHMM)을 만듭니다.
-    # 이 과정에서 날짜가 넘어갈 수도 있으므로, datetime 객체를 그대로 사용합니다.
-    base_datetime = obs_time_candidate.replace(minute=base_minute, second=0, microsecond=0)
+    # 예: 현재 06:32 -> 40분 전 05:52
+    # 05:52를 10분 단위로 내림 -> 05:50
+    # base_date는 06월 10일, base_time은 0550 (혹은 그 전)
+    
+    # 40분 전 시간 계산
+    adjusted_time = current_time - timedelta(minutes=40)
+    
+    # 10분 단위로 내림
+    base_minute = (adjusted_time.minute // 10) * 10
+    
+    # base_datetime을 10분 단위로 정확히 설정
+    base_datetime = adjusted_time.replace(minute=base_minute, second=0, microsecond=0)
     
     return base_datetime.strftime("%Y%m%d"), base_datetime.strftime("%H%M")
 
@@ -458,16 +466,22 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
     """
     # 기상청 API 서비스 키 (디코딩된 키 사용)
     # 이 부분을 발급받으신 API 키로 교체해주세요!
-    weather_service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
+    weather_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+    weather_service_key = urllib.parse.unquote(weather_service_key_encoded) # 명시적 디코딩
     
     # 에어코리아 API 서비스 키 (디코딩된 키 사용)
     # 이 부분을 발급받으신 API 키로 교체해주세요!
-    airkorea_service_key = "N/RBXLEXYr/O1xxA7qcJZY5LK63c1D44dWsoUszF+DHGpY+n2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA=="
+    airkorea_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
+    airkorea_service_key = urllib.parse.unquote(airkorea_service_key_encoded) # 명시적 디코딩
 
     weather = {}
 
     print(f"--- Starting fetch_weather_data for region: {region_full_name} ---")
     sys.stdout.flush()
+
+    # requests session을 사용하여 SSL 문제 회피 시도
+    session = requests.Session()
+    session.verify = False # SSL 인증서 검증 비활성화 (개발/디버깅 목적)
 
     try:
         # 1. 기상청 초단기 실황 API 호출
@@ -476,7 +490,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         weather_params = {
-            "serviceKey": weather_service_key, # 디코딩된 키 사용
+            "serviceKey": weather_service_key, 
             "pageNo": "1",
             "numOfRows": "100",
             "dataType": "JSON",
@@ -488,8 +502,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
 
         print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
         sys.stdout.flush()
-        # SSL 에러 해결을 위해 verify=False 추가 (개발/디버깅 목적)
-        weather_res = requests.get(weather_url, params=weather_params, timeout=5, verify=False) 
+        weather_res = session.get(weather_url, params=weather_params, timeout=5) 
         print(f"KMA API Response Status Code: {weather_res.status_code}")
         sys.stdout.flush()
         weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
@@ -565,8 +578,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         
         print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
         sys.stdout.flush()
-        # SSL 에러 해결을 위해 verify=False 추가 (개발/디버깅 목적)
-        airkorea_res = requests.get(airkorea_url, params=airkorea_params, timeout=5, verify=False)
+        airkorea_res = session.get(airkorea_url, params=airkorea_params, timeout=5) # session 사용
         print(f"Airkorea API Response Status Code: {airkorea_res.status_code}")
         sys.stdout.flush()
         airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
