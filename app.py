@@ -1285,7 +1285,7 @@ def search_news_response(keyword, max_count=5):
                 {
                     "label": "알림받기",
                     "action": "block", # 블록으로 연결하여 특정 동작 수행
-                    "blockId": "YOUR_NOTIFICATION_BLOCK_ID", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
+                    "blockId": "6848b46a938bdf47fcf3b4dc", # 알림 설정을 위한 블록 ID (카카오톡 챗봇 빌더에서 정의)
                     "extra": { # 알림 설정 시 키워드를 전달
                         "keyword": keyword
                     }
@@ -1293,48 +1293,57 @@ def search_news_response(keyword, max_count=5):
                 {
                     "label": "검색", # '검색' 버튼 추가
                     "action": "message",
+                    "blockId": "6840fd4cc5b310190b70166a"
                     "messageText": "뉴스 검색" # 챗봇 빌더에서 "뉴스 검색" 발화를 처리하는 블록으로 연결
                 },
                 {
                     "label": "정치", # '정치' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596834df7f67fcdd66b62"
                     "messageText": "정치 뉴스"
                 },
                 {
                     "label": "경제", # '경제' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596b798b6403c8dad6138"
                     "messageText": "경제 뉴스"
                 },
                 {
                     "label": "사회", # '사회' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683596c0e7598b00aa7e6eec"
                     "messageText": "사회 뉴스"
+                },
+                {
+                    "label": "문화", # '문화' 카테고리 버튼 추가
+                    "action": "message",
+                    "blockId": "683596e8d9c3e21ccc39943b"
+                    "messageText": "국제 뉴스"
                 },
                 {
                     "label": "국제", # '국제' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683597142c50e1482b1e05db"
                     "messageText": "국제 뉴스"
                 },
                 {
                     "label": "IT/과학", # 'IT/과학' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "68359701d9c3e21ccc399440"
                     "messageText": "IT/과학 뉴스"
                 },
                 {
                     "label": "문화연예", # '문화연예' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "683597362c50e1482b1e05df"
                     "messageText": "문화연예 뉴스"
                 },
                 {
                     "label": "스포츠", # '스포츠' 카테고리 버튼 추가
                     "action": "message",
+                    "blockId": "68359725938bdf47fcf0d8a4"
                     "messageText": "스포츠 뉴스"
                 },
-                {
-                    "label": "연예", # '연예' 카테고리 버튼 추가
-                    "action": "message",
-                    "messageText": "연예 뉴스"
-                }
             ]
         }
     })
