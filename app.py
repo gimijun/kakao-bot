@@ -106,27 +106,66 @@ def fetch_donga_trending_news(url, max_count=5):
         res = requests.get(url, headers=headers, timeout=10)
         res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
-        articles = soup.select("div.list ul li article")
+        
         news_items = []
+        
+        # 웹사이트 구조 변경에 대응하기 위해 여러 셀렉터를 시도
+        # 우선 'article' 태그를 직접 찾습니다.
+        potential_articles = soup.find_all("article")
+        
+        if not potential_articles:
+            # article 태그가 없으면, 뉴스 리스트에 흔히 사용되는 ul/li 패턴을 시도합니다.
+            # 웹사이트 구조가 변경되었을 가능성이 높으므로, 다양한 패턴을 시도해봅니다.
+            potential_articles = soup.select("ul.article_list_type01 li") # 흔한 뉴스 리스트 클래스
+        if not potential_articles:
+            potential_articles = soup.select("div.list_type01 ul li") # 또 다른 흔한 패턴
+        if not potential_articles:
+            potential_articles = soup.select("ul.type_list li") # 일반적인 리스트 타입
+        if not potential_articles:
+            potential_articles = soup.select("div.news_list li") # news_list div 내의 li
+        if not potential_articles:
+            # 마지막으로 가장 넓은 범위의 ul li를 시도 (관련 없는 항목도 포함될 수 있음)
+            potential_articles = soup.select("ul li")
 
-        for item in articles[:max_count]:
+
+        for item in potential_articles[:max_count]:
             title_tag = item.select_one("h4")
             link_tag = item.select_one("a")
-            image_tag = item.select_one("header a img") # 이미지 태그 경로 확인
+            # 이미지 태그를 찾습니다. news_thumb, thumbnail_image 등 흔히 사용되는 클래스를 고려
+            image_tag = item.select_one("img") 
+            if not image_tag: # 특정 클래스가 있는 이미지 태그를 시도
+                image_tag = item.select_one("img.news_thumb") 
+            if not image_tag:
+                image_tag = item.select_one("div.thumb img") # 썸네일 이미지가 div.thumb 안에 있을 경우
+
 
             title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-            link = "https:" + link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+            link = link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+            
+            # 링크가 상대 경로일 경우 절대 경로로 변환
+            if link.startswith('//'): 
+                link = "https:" + link
+            elif link.startswith('/'):
+                 link = "https://www.donga.com" + link
 
             image = ""
             if image_tag:
                 image = image_tag.get("src") or image_tag.get("data-src") or ""
                 image = clean_image_url(image)
+            else:
+                image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
 
-            news_items.append({
-                "title": title,
-                "image": image,
-                "link": link
-            })
+            # 유효한 제목과 링크가 있는 경우에만 추가
+            if title != "제목 없음" and link != "#": 
+                news_items.append({
+                    "title": title,
+                    "image": image,
+                    "link": link
+                })
+        
+        if not news_items and len(potential_articles) > 0:
+            print(f"Warning: Could not extract valid news items from trending page {url}. Potentially broken selectors for title/link within found articles/list items.")
+
         return news_items
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Donga trending news from {url}: {e}")
@@ -135,262 +174,7 @@ def fetch_donga_trending_news(url, max_count=5):
         print(f"Error parsing Donga trending news from {url}: {e}")
         return []
 
-def get_coords(region_name):
-    """지역 이름으로 좌표를 조회합니다."""
-    return region_coords.get(region_name, (None, None))
 
-def get_fine_dust_level(pm_value, is_pm25=False):
-    """미세먼지/초미세먼지 농도에 따른 5단계 등급과 메시지를 반환합니다."""
-    try:
-        pm = float(pm_value)
-        if is_pm25: # 초미세먼지 (PM2.5) 기준
-            if pm <= 8:
-                return "매우좋음", "매우 청정하고 상쾌해요!"
-            elif pm <= 15:
-                return "좋음", "맑은 공기 마시며 활동하기 좋아요."
-            elif pm <= 35:
-                return "보통", "보통 수준의 공기 질입니다."
-            elif pm <= 75:
-                return "나쁨", "실외 활동 시 마스크 착용을 권장해요."
-            else:
-                return "매우나쁨", "모든 연령대 실외 활동 자제!"
-        else: # 미세먼지 (PM10) 기준
-            if pm <= 15:
-                return "매우좋음", "매우 청정하고 상쾌해요!"
-            elif pm <= 30:
-                return "좋음", "야외 활동하기 좋아요."
-            elif pm <= 80:
-                return "보통", "보통 수준의 공기 질입니다."
-            elif pm <= 150:
-                return "나쁨", "마스크 착용을 권장해요."
-            else:
-                return "매우나쁨", "모든 연령대 야외 활동 자제!"
-    except (ValueError, TypeError):
-        return "정보 없음", "미세먼지 정보를 불러올 수 없습니다."
-
-
-def get_humidity_level(reh_value):
-    """습도에 따른 5단계 등급과 메시지를 반환합니다."""
-    try:
-        reh = float(reh_value)
-        if reh <= 30:
-            return "매우낮음", "건조한 날씨! 피부 보습에 신경 써주세요."
-        elif reh <= 40:
-            return "낮음", "피부가 건조해질 수 있어요."
-        elif reh <= 60:
-            return "보통", "쾌적한 습도입니다."
-        elif reh <= 75:
-            return "높음", "습한 날씨가 예상됩니다."
-        else:
-            return "매우높음", "불쾌지수가 높을 수 있어요. 제습에 신경 쓰세요!"
-    except (ValueError, TypeError):
-        return "정보 없음", "습도 정보를 불러올 수 없습니다."
-
-def get_sky_condition(sky_code, pty_code):
-    """하늘 상태(SKY)와 강수 형태(PTY) 코드를 한글 설명으로 변환합니다."""
-    sky_dict = {
-        "1": "맑음",
-        "3": "구름많음",
-        "4": "흐림"
-    }
-    pty_dict = {
-        "0": "", # 강수 없음
-        "1": "비",
-        "2": "비/눈",
-        "3": "눈",
-        "4": "소나기",
-        "5": "빗방울",
-        "6": "빗방울/눈날림",
-        "7": "눈날림"
-    }
-    
-    sky_desc = sky_dict.get(str(sky_code), "알 수 없음")
-    pty_desc = pty_dict.get(str(pty_code), "")
-
-    if pty_desc:
-        return pty_desc # 강수 형태가 있으면 강수 형태 우선
-    return sky_desc # 강수 형태가 없으면 하늘 상태
-
-def get_latest_base_time(current_time):
-    """
-    기상청 초단기실황 API의 base_time을 계산합니다.
-    API는 10분 단위로 자료가 생산되며, 정시 기준 40분 후 발표됩니다.
-    (예: 09시 20분 자료는 10시 00분에 발표)
-    """
-    for i in range(12): # 최대 2시간(120분) 전까지 확인
-        # 현재 시각에서 10분 단위로 거슬러 올라가며 잠재적 관측 시각 계산
-        obs_time = current_time - timedelta(minutes=(i * 10))
-        # 초와 마이크로초를 0으로 설정
-        obs_time = obs_time.replace(second=0, microsecond=0) 
-
-        # 해당 관측 시각의 자료 발표 시각 계산
-        pub_time = obs_time + timedelta(minutes=40)
-
-        # 발표 시각이 현재 시각보다 같거나 이전이면 이 자료가 가장 최신이므로 반환
-        if pub_time <= current_time:
-            return obs_time.strftime("%H%M")
-    
-    # 만약 2시간 동안 유효한 base_time을 찾지 못했다면, 현재 시각으로부터 1시간 전의 정시를 반환 (최후의 보루)
-    return (current_time - timedelta(hours=1)).strftime("%H00") 
-
-def fetch_weather_data(nx, ny, region_full_name="서울"):
-    """
-    기상청 API에서 날씨 데이터를 가져오고, 에어코리아 API에서 미세먼지 데이터를 가져옵니다.
-    """
-    # 기상청 API 서비스 키
-    weather_service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
-    # 에어코리아 API 서비스 키 (동일한 키 사용)
-    airkorea_service_key = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
-
-    weather = {}
-
-    try:
-        # 1. 기상청 초단기 실황 API 호출
-        now = datetime.now()
-        base_date = now.strftime("%Y%m%d")
-        base_time = get_latest_base_time(now) # 개선된 base_time 계산 함수 사용
-
-        weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
-        weather_params = {
-            "serviceKey": weather_service_key,
-            "pageNo": "1",
-            "numOfRows": "100",
-            "dataType": "JSON",
-            "base_date": base_date,
-            "base_time": base_time,
-            "nx": nx,
-            "ny": ny
-        }
-
-        print(f"Calling KMA API with base_date={base_date}, base_time={base_time}, nx={nx}, ny={ny}")
-        weather_res = requests.get(weather_url, params=weather_params, timeout=5)
-        weather_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-        weather_data_json = weather_res.json()
-
-        if weather_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
-            weather_items = weather_data_json['response']['body']['items']['item']
-            for item in weather_items:
-                category = item['category']
-                value = item['obsrValue']
-                if category in ["T1H", "REH", "SKY", "PTY"]: 
-                    weather[category] = value
-        else:
-            error_msg = weather_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 기상청 오류')
-            print(f"Weather API error: {error_msg}. Response: {weather_data_json}")
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching weather data from KMA API: {e}")
-    except Exception as e:
-        print(f"Error processing KMA weather data: {e}")
-
-    try:
-        # 2. 에어코리아 대기오염정보 조회 API 호출 (시도별 실시간 측정정보)
-        # sidoName을 위한 매핑
-        main_sido_part = region_full_name.split(' ')[0] # "서울특별시 종로구" -> "서울특별시"
-        sido_mapping = {
-            "서울특별시": "서울",
-            "부산광역시": "부산",
-            "대구광역시": "대구",
-            "인천광역시": "인천",
-            "광주광역시": "광주",
-            "대전광역시": "대전",
-            "울산광역시": "울산",
-            "세종특별자치시": "세종",
-            "경기도": "경기",
-            "강원특별자치도": "강원",
-            "충청북도": "충북",
-            "충청남도": "충남",
-            "전라북도": "전북", 
-            "전라남도": "전남",
-            "경상북도": "경북",
-            "경상남도": "경남",
-            "제주특별자치도": "제주"
-        }
-        # 매핑된 시도명 사용, 없으면 원본 그대로 사용
-        airkorea_sido_name = sido_mapping.get(main_sido_part, main_sido_part)
-
-        airkorea_url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty"
-        airkorea_params = {
-            "serviceKey": airkorea_service_key,
-            "returnType": "json",
-            "numOfRows": "1", 
-            "pageNo": "1",
-            "sidoName": airkorea_sido_name, # 정확히 매핑된 시도명 사용
-            "ver": "1.3" 
-        }
-        
-        print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
-        airkorea_res = requests.get(airkorea_url, params=airkorea_params, timeout=5)
-        airkorea_res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-        airkorea_data_json = airkorea_res.json()
-
-        if airkorea_data_json.get('response', {}).get('header', {}).get('resultCode') == '00':
-            airkorea_items = airkorea_data_json['response']['body']['items']
-            if airkorea_items:
-                first_station_data = airkorea_items[0] 
-                weather['PM10'] = first_station_data.get('pm10Value')
-                weather['PM25'] = first_station_data.get('pm25Value')
-            else:
-                print(f"No air quality data found for sidoName: {airkorea_sido_name}")
-        else:
-            error_msg = airkorea_data_json.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 에어코리아 오류')
-            print(f"Airkorea API error: {error_msg}. Response: {airkorea_data_json}")
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching airkorea data: {e}")
-    except Exception as e:
-        print(f"Error processing airkorea data: {e}")
-
-    return weather
-
-
-def create_weather_card(region_name, weather_data, web_url):
-    """날씨 데이터를 기반으로 카카오톡 ListCard를 생성합니다."""
-    if not weather_data or not weather_data.get("T1H"): # 기온 데이터가 없으면 실패로 간주
-        return {
-            "simpleText": {"text": f"'{region_name}' 지역의 날씨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."}
-        }
-
-    TMP = weather_data.get("T1H", "-")
-    REH = weather_data.get("REH", "-")
-    PM10 = weather_data.get("PM10", "-")
-    PM25 = weather_data.get("PM25", "-") 
-    SKY = weather_data.get("SKY", "1") 
-    PTY = weather_data.get("PTY", "0") 
-
-    # 날씨 상태 문자열 생성
-    weather_condition = get_sky_condition(SKY, PTY)
-    
-    # 미세먼지 등급 및 메시지
-    pm10_level, pm10_msg = get_fine_dust_level(PM10, is_pm25=False)
-    pm25_level, pm25_msg = get_fine_dust_level(PM25, is_pm25=True)
-    
-    # 습도 등급 및 메시지
-    reh_level, reh_msg = get_humidity_level(REH)
-
-    return {
-        "listCard": {
-            "header": {"title": f"☀️ '{region_name}' 현재 날씨"},
-            "items": [
-                # 기온 항목: 기온과 날씨 상태 함께 표시
-                {"title": f"기온 {TMP}℃, {weather_condition}", "description": ""},
-                # 미세먼지 항목: PM10과 PM25 등급 및 메시지 함께 표시
-                {"title": f"미세먼지: {pm10_level} / 초미세먼지: {pm25_level}", "description": f"PM10: {pm10_msg}\nPM2.5: {pm25_msg}"},
-                # 습도 항목: 등급과 퍼센트 함께 표시
-                {"title": f"습도 {reh_level} ({REH}%)", "description": reh_msg},
-            ],
-            "buttons": [
-                {"label": "다른 지역 보기", "action": "message", "messageText": "지역 변경하기"},
-                {
-                    "label": "기상청 전국 날씨",
-                    "action": "webLink",
-                    "webLinkUrl": web_url
-                }
-            ]
-        }
-    }
-
-# 기존 뉴스 관련 함수들 (ListCard 응답 생성)
 def list_card_response(title, rss_url, web_url):
     """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
     articles = fetch_rss_news(rss_url)
