@@ -870,6 +870,57 @@ def news_weather_route():
         }
     })
 
+# 새로운 알림 초기화 메시지 처리 엔드포인트
+@app.route("/news/handle_alarm_init", methods=["POST"])
+def handle_alarm_init_message():
+    """
+    카카오톡 챗봇 빌더의 '알림받기' 블록에서 호출되는 웹훅입니다.
+    extra 데이터를 통해 전달받은 topic 파라미터를 사용하여 동적인 메시지를 생성합니다.
+    """
+    body = request.get_json()
+    print(f"Received webhook body for /news/handle_alarm_init: {json.dumps(body, indent=2)}")
+    sys.stdout.flush()
+
+    # 'topic' 파라미터를 body에서 추출합니다.
+    # Quick Reply의 extra 데이터는 보통 action.params 하위에 위치합니다.
+    # 하지만 Quick Reply의 extra가 action.params로 직접 매핑되지 않고
+    # userRequest.action.extra 또는 userRequest.contexts에서 올 수도 있으므로,
+    # 여러 위치를 시도하여 값을 추출합니다.
+    topic = ""
+    # 1. action.params에서 시도 (가장 일반적인 웹훅 파라미터 매핑)
+    if not topic:
+        topic = body.get("action", {}).get("params", {}).get("topic", "").strip()
+    # 2. userRequest.action.extra에서 시도 (Quick Reply의 extra가 직접 전달된 경우)
+    if not topic:
+        topic = body.get("userRequest", {}).get("action", {}).get("extra", {}).get("topic", "").strip()
+    # 3. context에서 시도 (이전 블록의 context에 저장된 경우)
+    #    카카오톡 챗봇 빌더의 Context는 userRequest.contexts 에 배열 형태로 담길 수 있습니다.
+    #    각 context 객체는 'name'과 'params'를 가질 수 있습니다.
+    if not topic and body.get("userRequest", {}).get("contexts"):
+        for context in body["userRequest"]["contexts"]:
+            if "topic" in context.get("params", {}):
+                topic = context["params"]["topic"].strip()
+                break
+
+
+    if not topic:
+        print("Warning: 'topic' parameter not found in webhook request for /news/handle_alarm_init.")
+        sys.stdout.flush()
+        response_text = "알림 주제를 알 수 없습니다. 다시 시도해 주세요."
+    else:
+        response_text = f"언제 `{topic}` 뉴스를 보내드릴까요?\n원하는 방법을 선택해 주세요."
+        print(f"Generated alarm init message for topic: {topic}")
+        sys.stdout.flush()
+
+    return jsonify({
+        "version": "2.0",
+        "template": {
+            "outputs": [{
+                "simpleText": {"text": response_text}
+            }]
+        }
+    })
+
 # 헬스 체크 라우트
 @app.route("/", methods=["GET"])
 def health():
