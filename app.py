@@ -286,7 +286,13 @@ def common_quick_replies(topic=None): # 변경: keyword -> topic
             "label": "알림받기",
             "action": "block",
             "blockId": "6848b46a938bdf47fcf3b4dc", 
-            "extra": {"topic": topic} if topic else {} # 변경: keyword -> topic
+            "context": { # 컨텍스트 추가
+                "name": "news_alarm_context",
+                "lifeSpan": 3, # 3턴 동안 유지
+                "params": {
+                    "topic": topic # 컨텍스트에 topic 저장
+                }
+            }
         },
         {"label": "검색", "action": "message", "messageText": "검색", "blockId": "6840fd4cc5b310190b70166a"},
         {"label": "정치", "action": "message", "messageText": "정치", "blockId": "683596834df7f67fcdd66b62"},
