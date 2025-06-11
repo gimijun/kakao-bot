@@ -739,7 +739,7 @@ def search_by_user_input():
                 }]
             }
         })
-    return search_news_response(keyword, max_count=5)
+    return fetch_donga_trending_news(keyword, max_count=5)
 
 # 카테고리별 뉴스 라우트
 @app.route("/news/politics", methods=["POST"])
