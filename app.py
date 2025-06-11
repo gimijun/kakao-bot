@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, requestMore actions
+from flask import Flask, jsonify, request
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -27,7 +27,7 @@ def get_coords(region_name):
     # 정확한 매칭을 위해 입력된 region_name을 기반으로 찾음
     # 예를 들어, '서울'이 입력되면 '서울특별시 종로구'와 같은 상세 주소를 매핑해야 함.
     # 여기서는 region_coords.json에 저장된 키들을 순회하며 일치하는 지역을 찾습니다.
-
+    
     # 먼저 정확히 일치하는 지역을 찾음
     if region_name in region_coords:
         return region_coords[region_name]
@@ -41,7 +41,7 @@ def get_coords(region_name):
             print(f"Found partial match for '{region_name}': '{full_region_name}' -> {coords}")
             sys.stdout.flush()
             return coords
-
+            
     print(f"Coords not found for region: {region_name}")
     sys.stdout.flush()
     return None, None
@@ -93,81 +93,76 @@ def clean_image_url(image):
 
 def fetch_donga_search_news(keyword, max_count=5):
     """동아일보에서 키워드 검색 뉴스를 가져옵니다."""
-    return list_card_response("키워드", "https://rss.donga.com/total.xml", None)
+    start_time = time.time() # 시작 시간 기록
+    url = f"https://www.donga.com/news/search?query={keyword}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": "https://www.donga.com/"
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
+        res.raise_for_status() # HTTP 에러 발생 시 예외 발생
+        soup = BeautifulSoup(res.text, "html.parser")
+        
+        news_items = []
+        
+        # 검색 페이지의 기사 목록 셀렉터 강화
+        # 'ul.row_list li article'이 가장 흔한 패턴이지만, 다른 가능성도 고려
+        potential_articles = soup.select("ul.row_list li article")
+        if not potential_articles:
+            potential_articles = soup.select("ul.row_list li") # article 태그가 없을 경우 li만 선택
+
+        for item in potential_articles[:max_count]:
+            title_tag = item.select_one("h4")
+            link_tag = item.select_one("a")
+            image_tag = item.select_one("img") # 이미지 태그를 좀 더 넓게 찾음
+            if not image_tag: # 혹시 div 내부에 있을 경우
+                image_tag = item.select_one("div.thumb img") 
+            if not image_tag: # 또 다른 흔한 패턴
+                image_tag = item.select_one("header a div img")
 
 
+            title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
+            link = link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+            
+            # 링크가 상대 경로일 경우 절대 경로로 변환
+            if link.startswith('//'): 
+                link = "https:" + link
+            elif link.startswith('/'):
+                 link = "https://www.donga.com" + link
 
+            image = ""
+            if image_tag:
+                image = image_tag.get("src") or image_tag.get("data-src") or ""
+                image = clean_image_url(image)
+            else:
+                image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
 
-#     start_time = time.time() # 시작 시간 기록
-#     url = f"https://www.donga.com/news/search?query={keyword}"
-#     headers = {
-#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-#         "Accept-Language": "ko-KR,ko;q=0.9",
-#         "Referer": "https://www.donga.com/"
-#     }
-#     try:
-#         res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
-#         res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-#         soup = BeautifulSoup(res.text, "html.parser")
+            # 유효한 제목과 링크가 있는 경우에만 추가
+            if title != "제목 없음" and link != "#": 
+                news_items.append({
+                    "title": title,
+                    "image": image,
+                    "link": link
+                })
+        
+        if not news_items and len(potential_articles) > 0:
+            print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
+            sys.stdout.flush()
 
-#         news_items = []
-
-#         # 검색 페이지의 기사 목록 셀렉터 강화
-#         # 'ul.row_list li article'이 가장 흔한 패턴이지만, 다른 가능성도 고려
-#         potential_articles = soup.select("ul.row_list li article")
-#         if not potential_articles:
-#             potential_articles = soup.select("ul.row_list li") # article 태그가 없을 경우 li만 선택
-
-#         for item in potential_articles[:max_count]:
-#             title_tag = item.select_one("h4")
-#             link_tag = item.select_one("a")
-#             image_tag = item.select_one("img") # 이미지 태그를 좀 더 넓게 찾음
-#             if not image_tag: # 혹시 div 내부에 있을 경우
-#                 image_tag = item.select_one("div.thumb img") 
-#             if not image_tag: # 또 다른 흔한 패턴
-#                 image_tag = item.select_one("header a div img")
-
-
-#             title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-#             link = link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
-
-#             # 링크가 상대 경로일 경우 절대 경로로 변환
-#             if link.startswith('//'): 
-#                 link = "https:" + link
-#             elif link.startswith('/'):
-#                  link = "https://www.donga.com" + link
-
-#             image = ""
-#             if image_tag:
-#                 image = image_tag.get("src") or image_tag.get("data-src") or ""
-#                 image = clean_image_url(image)
-#             else:
-#                 image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
-
-#             # 유효한 제목과 링크가 있는 경우에만 추가
-#             if title != "제목 없음" and link != "#": 
-#                 news_items.append({
-#                     "title": title,
-#                     "image": image,
-#                     "link": link
-#                 })
-
-#         if not news_items and len(potential_articles) > 0:
-#             print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
-#             sys.stdout.flush()
-
-#         end_time = time.time() # 종료 시간 기록
-#         print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
-#         sys.stdout.flush()
-#         return news_items
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error fetching Donga search news for '{keyword}': {e}")
-#         sys.stdout.flush()
-#         return []
-#     except Exception as e:
-#         print(f"Error parsing Donga search news for '{keyword}': {e}")
-#         sys.stdout.flush()
-#         return []
+        end_time = time.time() # 종료 시간 기록
+        print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
+        sys.stdout.flush()
+        return news_items
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching Donga search news for '{keyword}': {e}")
+        sys.stdout.flush()
+        return []
+    except Exception as e:
+        print(f"Error parsing Donga search news for '{keyword}': {e}")
+        sys.stdout.flush()
+        return []
 
 def fetch_donga_trending_news(url, max_count=5):
     """동아일보에서 트렌딩 뉴스를 가져옵니다."""
@@ -179,13 +174,13 @@ def fetch_donga_trending_news(url, max_count=5):
         res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
         res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
-
+        
         news_items = []
-
+        
         # 웹사이트 구조 변경에 대응하기 위해 여러 셀렉터를 시도
         # "많이 본 뉴스"나 "요즘 뜨는 이슈" 페이지는 article 태그가 없는 경우가 많음
         potential_articles = []
-
+        
         # 가장 흔한 뉴스 리스트 패턴들을 순차적으로 시도
         selectors_to_try = [
             "ul.row_list li article", # 기존 검색 페이지에서 사용하던 패턴
@@ -197,7 +192,7 @@ def fetch_donga_trending_news(url, max_count=5):
             "section.ranking_type01 li", # 랭킹 섹션 패턴
             "ul li" # 최후의 수단으로 가장 넓은 범위
         ]
-
+        
         for selector in selectors_to_try:
             found_items = soup.select(selector)
             if found_items:
@@ -205,7 +200,7 @@ def fetch_donga_trending_news(url, max_count=5):
                 print(f"Found articles with selector: {selector}")
                 sys.stdout.flush()
                 break # 찾았으면 더 이상 시도하지 않음
-
+        
         if not potential_articles:
             print(f"Warning: No potential articles found using any selector for URL: {url}")
             sys.stdout.flush()
@@ -239,7 +234,7 @@ def fetch_donga_trending_news(url, max_count=5):
                 link = link_tag["href"]
             else:
                 link = "#"
-
+            
             # 링크가 상대 경로일 경우 절대 경로로 변환
             if link.startswith('//'): 
                 link = "https:" + link
@@ -260,7 +255,7 @@ def fetch_donga_trending_news(url, max_count=5):
                     "image": image,
                     "link": link
                 })
-
+        
         if not news_items and len(potential_articles) > 0:
             print(f"Warning: Could not extract valid news items from trending page {url}. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items, but no valid news_items were created.")
             sys.stdout.flush()
@@ -469,7 +464,7 @@ def get_sky_condition(sky_code, pty_code):
         "6": "빗방울/눈날림",
         "7": "눈날림"
     }
-
+    
     sky_desc = sky_dict.get(str(sky_code), "알 수 없음")
     pty_desc = pty_dict.get(str(pty_code), "")
 
@@ -485,13 +480,13 @@ def get_latest_base_time(current_time):
     """
     # 40분 전 시간 계산 (현재 시각으로부터 40분을 뺀 시각이 실제 관측 시각이 됨)
     adjusted_time = current_time - timedelta(minutes=40)
-
+    
     # 분을 10분 단위로 내림 (예: 05:52 -> 05:50)
     base_minute = (adjusted_time.minute // 10) * 10
-
+    
     # 초와 마이크로초는 0으로 설정하여 정확한 base_time (HHMM)을 만듭니다.
     base_datetime = adjusted_time.replace(minute=base_minute, second=0, microsecond=0)
-
+    
     return base_datetime.strftime("%Y%m%d"), base_datetime.strftime("%H%M")
 
 
@@ -504,7 +499,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
     # 이 부분을 발급받으신 API 키로 교체해주세요!
     weather_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
     weather_service_key = urllib.parse.unquote(weather_service_key_encoded) # 명시적 디코딩
-
+    
     # 에어코리아 API 서비스 키 (디코딩된 키 사용)
     # 이 부분을 발급받으신 API 키로 교체해주세요!
     airkorea_service_key_encoded = "N%2FRBXLEXYr%2FO1xxA7qcJZY5LK63c1D44dWsoUszF%2BDHGpY%2Bn2xAea7ruByvKh566Qf69vLarJBgGRXdVe4DlkA%3D%3D"
@@ -585,7 +580,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
         }
         # 매핑된 시도명 사용, 없으면 원본에서 추출한 광역 시도명 그대로 사용 (혹시모를 예외처리)
         airkorea_sido_name = sido_mapping.get(main_sido_part, main_sido_part)
-
+        
         # region_coords.json에 있는 "서울특별시 종로구" 같은 상세 이름이 들어올 경우
         # airkorea_sido_name에 "서울"만 들어가도록 다시 한번 확인
         # 이 부분은 sido_mapping으로 충분할 수 있지만, 혹시 모를 경우를 대비
@@ -618,7 +613,7 @@ def fetch_weather_data(nx, ny, region_full_name="서울"):
             "sidoName": airkorea_sido_name, # 정확히 매핑된 시도명 사용
             "ver": "1.3" 
         }
-
+        
         print(f"Calling Airkorea API with sidoName={airkorea_sido_name}")
         sys.stdout.flush()
         airkorea_api_start_time = time.time()
@@ -684,11 +679,11 @@ def create_weather_card(region_name, weather_data, web_url):
 
     # 날씨 상태 문자열 생성
     weather_condition = get_sky_condition(SKY, PTY)
-
+    
     # 미세먼지 등급 및 메시지
     pm10_level, pm10_msg = get_fine_dust_level(PM10, is_pm25=False)
     pm25_level, pm25_msg = get_fine_dust_level(PM25, is_pm25=True)
-
+    
     # 습도 등급 및 메시지
     reh_level, reh_msg = get_humidity_level(REH)
 
@@ -740,7 +735,6 @@ def search_by_user_input():
             }
         })
     return search_news_response(keyword, max_count=5)
-    return fetch_donga_trending_news(keyword, max_count=5)
 
 # 카테고리별 뉴스 라우트
 @app.route("/news/politics", methods=["POST"])
@@ -790,12 +784,12 @@ def news_entertainment():
 @app.route("/news/trending", methods=["POST"])
 def trending_daily():
     """'요즘 뜨는 뉴스' 요청을 처리합니다."""
-    return trending_card_response("일간 뉴스", "https://www.donga.com/news/TrendNews/daily")
+    return trending_card_response("요즘 뜨는 뉴스", "https://www.donga.com/news/TrendNews/daily")
 
 @app.route("/news/popular", methods=["POST"])
 def trending_monthly():
     """'많이 본 뉴스' 요청을 처리합니다."""
-    return trending_card_response("월간 뉴스", "https://www.donga.com/news/TrendNews/monthly")
+    return trending_card_response("많이 본 뉴스", "https://www.donga.com/news/TrendNews/monthly")
 
 # 날씨 정보 라우트 (기존 /weather/change-region 유지)
 @app.route("/weather/change-region", methods=["POST"])
@@ -824,7 +818,7 @@ def weather_by_region():
                 }]
             }
         })
-
+    
     # 미세먼지 데이터를 위해 시도 이름을 fetch_weather_data에 전달
     weather_data = fetch_weather_data(nx, ny, region_full_name=region) 
     weather_card = create_weather_card(region, weather_data, "https://www.weather.go.kr/w/weather/forecast/short-term.do")
@@ -851,7 +845,7 @@ def news_weather_route():
 
     print(f"Extracted region for /news/weather: {region}") # 추출된 지역명 로깅 추가
     sys.stdout.flush()
-
+    
     nx, ny = get_coords(region)
 
     if not nx or not ny:
@@ -863,7 +857,7 @@ def news_weather_route():
                 }]
             }
         })
-
+    
     # 미세먼지 데이터를 위해 시도 이름을 fetch_weather_data에 전달
     weather_data = fetch_weather_data(nx, ny, region_full_name=region)
     # create_weather_card 함수가 이미지처럼 ListCard를 생성하고 버튼 포함
