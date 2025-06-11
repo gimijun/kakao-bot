@@ -26,7 +26,7 @@ def get_coords(region_name):
     # region_coords 딕셔너리에 '구'나 '시'가 포함된 전체 지역명으로 저장되어 있으므로,
     # 정확한 매칭을 위해 입력된 region_name을 기반으로 찾음
     # 예를 들어, '서울'이 입력되면 '서울특별시 종로구'와 같은 상세 주소를 매핑해야 함.
-    # 여기서는 region_coords.json에 저장된 키들을 순회하며 일치하는 지역을 찾습니다.
+    # 여기서는 region_coords.json에 저장된 키들을 순회하며 일치하는 지역을 찾습니다."""
     
     # 먼저 정확히 일치하는 지역을 찾음
     if region_name in region_coords:
@@ -274,14 +274,20 @@ def fetch_donga_trending_news(url, max_count=5):
         return []
 
 
-def common_quick_replies(topic=None): # 변경: keyword -> topic
+def common_quick_replies(topic=None): 
     """모든 뉴스 응답에서 공통으로 사용될 Quick Replies를 생성합니다."""
     quick_replies_list = [
         {
             "label": "알림받기",
             "action": "block",
             "blockId": "6848b46a938bdf47fcf3b4dc", 
-            "extra": {"topic": topic} if topic else {} # 변경: keyword -> topic
+            "context": { # 컨텍스트 추가
+                "name": "news_alarm_context", # 컨텍스트 이름
+                "lifeSpan": 3, # 3턴 동안 유지
+                "params": {
+                    "topic": topic # 컨텍스트에 topic 저장
+                }
+            }
         },
         {"label": "검색", "action": "message", "messageText": "검색", "blockId": "6840fd4cc5b310190b70166a"},
         {"label": "정치", "action": "message", "messageText": "정치", "blockId": "683596834df7f67fcdd66b62"},
@@ -291,7 +297,7 @@ def common_quick_replies(topic=None): # 변경: keyword -> topic
         {"label": "국제", "action": "message", "messageText": "국제", "blockId": "683597142c50e1482b1e05db"},
         {"label": "IT 과학", "action": "message", "messageText": "IT 과학", "blockId": "68359701d9c3e21ccc399440"},
         {"label": "스포츠", "action": "message", "messageText": "스포츠", "blockId": "68359725938bdf47fcf0d8a4"},
-        {"label": "연예", "action": "message", "messageText": "연예", "blockId": "683597362c50e1482b1e05df"} # 연예 뉴스 블록 ID를 제공된 값으로 변경
+        {"label": "연예", "action": "message", "messageText": "연예", "blockId": "683597362c50e1482b1e05df"} 
     ]
     return quick_replies_list
 
@@ -326,7 +332,7 @@ def list_card_response(title, rss_url, web_url):
                     }]
                 }
             }],
-            "quickReplies": common_quick_replies(topic=title) # 변경: keyword -> topic
+            "quickReplies": common_quick_replies(topic=title) 
         }
     })
 
@@ -361,7 +367,7 @@ def trending_card_response(title, web_url):
                 }
             }]
         },
-        "quickReplies": common_quick_replies(topic=title) # 변경: keyword -> topic
+        "quickReplies": common_quick_replies(topic=title) 
     })
 
 def search_news_response(keyword, max_count=5):
@@ -394,7 +400,7 @@ def search_news_response(keyword, max_count=5):
                     }]
                 }
             }],
-            "quickReplies": common_quick_replies(topic=keyword) # 변경: keyword -> topic
+            "quickReplies": common_quick_replies(topic=keyword) 
         }
     })
 
@@ -875,36 +881,51 @@ def news_weather_route():
 def handle_alarm_init_message():
     """
     카카오톡 챗봇 빌더의 '알림받기' 블록에서 호출되는 웹훅입니다.
-    extra 데이터를 통해 전달받은 topic 파라미터를 사용하여 동적인 메시지를 생성합니다.
+    컨텍스트를 통해 전달받은 topic 파라미터를 사용하여 동적인 메시지를 생성합니다.
     """
     body = request.get_json()
     print(f"Received webhook body for /news/handle_alarm_init: {json.dumps(body, indent=2)}")
     sys.stdout.flush()
 
-    # 'topic' 파라미터를 body에서 추출합니다.
-    # Quick Reply의 extra 데이터는 보통 action.params 하위에 위치합니다.
-    # 하지만 Quick Reply의 extra가 action.params로 직접 매핑되지 않고
-    # userRequest.action.extra 또는 userRequest.contexts에서 올 수도 있으므로,
-    # 여러 위치를 시도하여 값을 추출합니다.
     topic = ""
-    # 1. action.params에서 시도 (가장 일반적인 웹훅 파라미터 매핑)
+    # 1. userRequest.contexts에서 "news_alarm_context"를 찾아 topic 추출 (최우선)
+    if body.get("userRequest", {}).get("contexts"):
+        for context in body["userRequest"]["contexts"]:
+            # context.get("name")으로 컨텍스트 이름을 안전하게 확인
+            if context.get("name") == "news_alarm_context" and "topic" in context.get("params", {}):
+                topic = context["params"]["topic"].strip()
+                print(f"Parsed topic from context ('news_alarm_context'): {topic}")
+                sys.stdout.flush()
+                break # 찾았으면 더 이상 검색하지 않음
+    
+    # 2. action.params에서 시도 (블록 파라미터가 웹훅으로 매핑된 경우 - 컨텍스트 유입이 잘 안될 경우의 대비책)
     if not topic:
         topic = body.get("action", {}).get("params", {}).get("topic", "").strip()
-    # 2. userRequest.action.extra에서 시도 (Quick Reply의 extra가 직접 전달된 경우)
+        if topic:
+            print(f"Parsed topic from action.params: {topic}")
+            sys.stdout.flush()
+
+    # 3. userRequest.utterance에서 "뉴스알림설정:TOPIC" 패턴을 파싱 (fallback - 혹시 모를 대비)
+    if not topic:
+        utterance = body.get("userRequest", {}).get("utterance", "").strip()
+        if utterance.startswith("뉴스알림설정:"):
+            topic = utterance.split(":", 1)[1].strip()
+            print(f"Parsed topic from utterance (fallback): {topic}")
+            sys.stdout.flush()
+        else:
+            print(f"Utterance does not match '뉴스알림설정:' pattern (fallback): {utterance}")
+            sys.stdout.flush()
+
+    # 4. userRequest.action.extra에서 시도 (과거 extra 전달 방식, fallback - 혹시 모를 대비)
     if not topic:
         topic = body.get("userRequest", {}).get("action", {}).get("extra", {}).get("topic", "").strip()
-    # 3. context에서 시도 (이전 블록의 context에 저장된 경우)
-    #    카카오톡 챗봇 빌더의 Context는 userRequest.contexts 에 배열 형태로 담길 수 있습니다.
-    #    각 context 객체는 'name'과 'params'를 가질 수 있습니다.
-    if not topic and body.get("userRequest", {}).get("contexts"):
-        for context in body["userRequest"]["contexts"]:
-            if "topic" in context.get("params", {}):
-                topic = context["params"]["topic"].strip()
-                break
+        if topic:
+            print(f"Parsed topic from userRequest.action.extra (fallback): {topic}")
+            sys.stdout.flush()
 
 
     if not topic:
-        print("Warning: 'topic' parameter not found in webhook request for /news/handle_alarm_init.")
+        print("Warning: 'topic' parameter not found in webhook request for /news/handle_alarm_init after all attempts.")
         sys.stdout.flush()
         response_text = "알림 주제를 알 수 없습니다. 다시 시도해 주세요."
     else:
