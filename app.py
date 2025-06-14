@@ -876,71 +876,71 @@ def news_weather_route():
         }
     })
 
-# 새로운 알림 초기화 메시지 처리 엔드포인트
-@app.route("/news/handle_alarm_init", methods=["POST"])
-def handle_alarm_init_message():
-    """
-    카카오톡 챗봇 빌더의 '알림받기' 블록에서 호출되는 웹훅입니다.
-    컨텍스트를 통해 전달받은 topic 파라미터를 사용하여 동적인 메시지를 생성합니다.
-    """
-    body = request.get_json()
-    print(f"Received webhook body for /news/handle_alarm_init: {json.dumps(body, indent=2)}")
-    sys.stdout.flush()
+# # 새로운 알림 초기화 메시지 처리 엔드포인트
+# @app.route("/news/handle_alarm_init", methods=["POST"])
+# def handle_alarm_init_message():
+#     """
+#     카카오톡 챗봇 빌더의 '알림받기' 블록에서 호출되는 웹훅입니다.
+#     컨텍스트를 통해 전달받은 topic 파라미터를 사용하여 동적인 메시지를 생성합니다.
+#     """
+#     body = request.get_json()
+#     print(f"Received webhook body for /news/handle_alarm_init: {json.dumps(body, indent=2)}")
+#     sys.stdout.flush()
 
-    topic = ""
-    # 1. userRequest.contexts에서 "news_alarm_context"를 찾아 topic 추출 (최우선)
-    if body.get("userRequest", {}).get("contexts"):
-        for context in body["userRequest"]["contexts"]:
-            # context.get("name")으로 컨텍스트 이름을 안전하게 확인
-            if context.get("name") == "news_alarm_context" and "topic" in context.get("params", {}):
-                topic = context["params"]["topic"].strip()
-                print(f"Parsed topic from context ('news_alarm_context'): {topic}")
-                sys.stdout.flush()
-                break # 찾았으면 더 이상 검색하지 않음
+#     topic = ""
+#     # 1. userRequest.contexts에서 "news_alarm_context"를 찾아 topic 추출 (최우선)
+#     if body.get("userRequest", {}).get("contexts"):
+#         for context in body["userRequest"]["contexts"]:
+#             # context.get("name")으로 컨텍스트 이름을 안전하게 확인
+#             if context.get("name") == "news_alarm_context" and "topic" in context.get("params", {}):
+#                 topic = context["params"]["topic"].strip()
+#                 print(f"Parsed topic from context ('news_alarm_context'): {topic}")
+#                 sys.stdout.flush()
+#                 break # 찾았으면 더 이상 검색하지 않음
     
-    # 2. action.params에서 시도 (블록 파라미터가 웹훅으로 매핑된 경우 - 컨텍스트 유입이 잘 안될 경우의 대비책)
-    if not topic:
-        topic = body.get("action", {}).get("params", {}).get("topic", "").strip()
-        if topic:
-            print(f"Parsed topic from action.params: {topic}")
-            sys.stdout.flush()
+#     # 2. action.params에서 시도 (블록 파라미터가 웹훅으로 매핑된 경우 - 컨텍스트 유입이 잘 안될 경우의 대비책)
+#     if not topic:
+#         topic = body.get("action", {}).get("params", {}).get("topic", "").strip()
+#         if topic:
+#             print(f"Parsed topic from action.params: {topic}")
+#             sys.stdout.flush()
 
-    # 3. userRequest.utterance에서 "뉴스알림설정:TOPIC" 패턴을 파싱 (fallback - 혹시 모를 대비)
-    if not topic:
-        utterance = body.get("userRequest", {}).get("utterance", "").strip()
-        if utterance.startswith("뉴스알림설정:"):
-            topic = utterance.split(":", 1)[1].strip()
-            print(f"Parsed topic from utterance (fallback): {topic}")
-            sys.stdout.flush()
-        else:
-            print(f"Utterance does not match '뉴스알림설정:' pattern (fallback): {utterance}")
-            sys.stdout.flush()
+#     # 3. userRequest.utterance에서 "뉴스알림설정:TOPIC" 패턴을 파싱 (fallback - 혹시 모를 대비)
+#     if not topic:
+#         utterance = body.get("userRequest", {}).get("utterance", "").strip()
+#         if utterance.startswith("뉴스알림설정:"):
+#             topic = utterance.split(":", 1)[1].strip()
+#             print(f"Parsed topic from utterance (fallback): {topic}")
+#             sys.stdout.flush()
+#         else:
+#             print(f"Utterance does not match '뉴스알림설정:' pattern (fallback): {utterance}")
+#             sys.stdout.flush()
 
-    # 4. userRequest.action.extra에서 시도 (과거 extra 전달 방식, fallback - 혹시 모를 대비)
-    if not topic:
-        topic = body.get("userRequest", {}).get("action", {}).get("extra", {}).get("topic", "").strip()
-        if topic:
-            print(f"Parsed topic from userRequest.action.extra (fallback): {topic}")
-            sys.stdout.flush()
+#     # 4. userRequest.action.extra에서 시도 (과거 extra 전달 방식, fallback - 혹시 모를 대비)
+#     if not topic:
+#         topic = body.get("userRequest", {}).get("action", {}).get("extra", {}).get("topic", "").strip()
+#         if topic:
+#             print(f"Parsed topic from userRequest.action.extra (fallback): {topic}")
+#             sys.stdout.flush()
 
 
-    if not topic:
-        print("Warning: 'topic' parameter not found in webhook request for /news/handle_alarm_init after all attempts.")
-        sys.stdout.flush()
-        response_text = "알림 주제를 알 수 없습니다. 다시 시도해 주세요."
-    else:
-        response_text = f"언제 `{topic}` 뉴스를 보내드릴까요?\n원하는 방법을 선택해 주세요."
-        print(f"Generated alarm init message for topic: {topic}")
-        sys.stdout.flush()
+#     if not topic:
+#         print("Warning: 'topic' parameter not found in webhook request for /news/handle_alarm_init after all attempts.")
+#         sys.stdout.flush()
+#         response_text = "알림 주제를 알 수 없습니다. 다시 시도해 주세요."
+#     else:
+#         response_text = f"언제 `{topic}` 뉴스를 보내드릴까요?\n원하는 방법을 선택해 주세요."
+#         print(f"Generated alarm init message for topic: {topic}")
+#         sys.stdout.flush()
 
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "simpleText": {"text": response_text}
-            }]
-        }
-    })
+#     return jsonify({
+#         "version": "2.0",
+#         "template": {
+#             "outputs": [{
+#                 "simpleText": {"text": response_text}
+#             }]
+#         }
+#     })
 
 # 헬스 체크 라우트
 @app.route("/", methods=["GET"])
