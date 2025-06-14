@@ -151,7 +151,7 @@ def fetch_donga_search_news(keyword, max_count=5):
     #         print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
     #         sys.stdout.flush()
 
-        """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
+    """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
     articles = fetch_rss_news('https://rss.donga.com/total.xml', 20)
     if not articles:
         items = [{
@@ -183,7 +183,7 @@ def fetch_donga_search_news(keyword, max_count=5):
             "outputs": [{
                 "listCard": {
                     "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
-                    "items": items,
+                    "items": response.text,
                     "buttons": [{
                         "label": "더보기",
                         "action": "webLink",
