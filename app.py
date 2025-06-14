@@ -166,7 +166,7 @@ def fetch_donga_search_news(keyword, max_count=5):
             "link": {"web": a["link"]}
         } for a in articles]
 
-    for item in items:
+    for item in items[:10]:
         from google import genai
 
         import base64
@@ -190,6 +190,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         
     return jsonify({
         "version": "2.0",
+        "useCallback" : true,
         "template": {
             "outputs": [{
                 "listCard": {
