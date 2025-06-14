@@ -179,12 +179,15 @@ def fetch_donga_search_news(keyword, max_count=5):
         
         client = genai.Client(api_key=str)
         
-        response = client.models.generate_content(
+        try:
+            response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20", contents=f"{item['title']}과 {keyword} 사이의 연관성을 퍼센테이지(%)로 나타내세요. 퍼센테이지 외에는 절대 아무것도 출력하지 마세요."
         )
-        print(response.text)
+            print(response.text, keyword)
+        except:
+            print('failed. stop doing.')
+            break
         
-
     return jsonify({
         "version": "2.0",
         "template": {
