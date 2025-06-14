@@ -166,7 +166,7 @@ def fetch_donga_search_news(keyword, max_count=5):
             "link": {"web": a["link"]}
         } for a in articles]
 
-    for item in items[:10]:
+    for item in items:
         from google import genai
 
         import base64
@@ -179,25 +179,18 @@ def fetch_donga_search_news(keyword, max_count=5):
         
         client = genai.Client(api_key=str)
         
-        try:
-            response = client.models.generate_content(
+        response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20", contents=f"{item['title']}과 {keyword} 사이의 연관성을 퍼센테이지(%)로 나타내세요. 퍼센테이지 외에는 절대 아무것도 출력하지 마세요."
         )
-            print(response.text, keyword)
-        except:
-            print('failed. stop doing.')
-            break
+        print(response.text)
         
+
     return jsonify({
         "version": "2.0",
-        "useCallback" : True,
-        "data": {
-            "text" : "검색 중이에요😘"
-        },
         "template": {
             "outputs": [{
                 "listCard": {
-                    "header": '키워드 검색 결과',
+                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
                     "items": response.text,
                     "buttons": [{
                         "label": "더보기",
