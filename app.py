@@ -193,7 +193,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         "useCallback" : true,
         "data": {
             "text" : "검색 중이에요😘"
-        }
+        },
         "template": {
             "outputs": [{
                 "listCard": {
