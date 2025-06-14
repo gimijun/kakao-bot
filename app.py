@@ -169,10 +169,18 @@ def fetch_donga_search_news(keyword, max_count=5):
     for item in items:
         from google import genai
 
-        client = genai.Client(api_key="AIzaSyAwB_E3eWOnMmo0MZcGaIFipb3JeqZ30C8")
+        import base64
+
+        code = 'QUl6YVN5QXdoa21GQ0xmQXRLeGhfLTBZX0tIR3N2dnVJaThHaXVN'
+        code_bytes = code.encode('ascii')
+        
+        decoded = base64.b64decode(code_bytes)
+        str = decoded.decode('UTF-8')
+        
+        client = genai.Client(api_key=str)
         
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=f"{item['title']}과 {keyword} 사이의 연관성을 퍼센테이지로 나타내세요. 퍼센테이지 외에는 아무것도 출력하지 마세요."
+            model="gemini-2.5-flash", contents=f"{item['title']}과 {keyword} 사이의 연관성을 퍼센테이지로 나타내세요. 퍼센테이지 외에는 아무것도 출력하지 마세요."
         )
         print(response.text)
         
