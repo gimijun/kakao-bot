@@ -190,7 +190,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         
     return jsonify({
         "version": "2.0",
-        "useCallback" : true,
+        "useCallback" : True,
         "data": {
             "text" : "검색 중이에요😘"
         },
