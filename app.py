@@ -199,14 +199,14 @@ def fetch_donga_search_news(keyword, max_count=5):
     print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
     sys.stdout.flush()
     return news_items
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching Donga search news for '{keyword}': {e}")
-        sys.stdout.flush()
-        return []
-    except Exception as e:
-        print(f"Error parsing Donga search news for '{keyword}': {e}")
-        sys.stdout.flush()
-        return []
+    # except requests.exceptions.RequestException as e:
+    #     print(f"Error fetching Donga search news for '{keyword}': {e}")
+    #     sys.stdout.flush()
+    #     return []
+    # except Exception as e:
+    #     print(f"Error parsing Donga search news for '{keyword}': {e}")
+    #     sys.stdout.flush()
+    #     return []
 
 def fetch_donga_trending_news(url, max_count=5):
     """동아일보에서 트렌딩 뉴스를 가져옵니다."""
