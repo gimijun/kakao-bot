@@ -191,10 +191,13 @@ def fetch_donga_search_news(keyword, max_count=5):
     return jsonify({
         "version": "2.0",
         "useCallback" : true,
+        "data": {
+            "text" : "검색 중이에요😘"
+        }
         "template": {
             "outputs": [{
                 "listCard": {
-                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
+                    "header": '키워드 검색 결과',
                     "items": response.text,
                     "buttons": [{
                         "label": "더보기",
