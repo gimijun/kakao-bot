@@ -171,7 +171,7 @@ def fetch_donga_search_news(keyword, max_count=5):
 
         import base64
 
-        code = 'QUl6YVN5QXdoa21GQ0xmQXRLeGhfLTBZX0tIR3N2dnVJaThHaXVN'
+        code = 'QUl6YVN5QXdCX0UzZVdPbk1tbzBNWmNHYUlGaXBiM0plcVozMEM4'
         code_bytes = code.encode('ascii')
         
         decoded = base64.b64decode(code_bytes)
