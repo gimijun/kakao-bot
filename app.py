@@ -165,7 +165,7 @@ def fetch_donga_search_news(keyword, max_count=5):
     #     return []
 
         """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
-    articles = fetch_rss_news('https://rss.donga.com/total.xml', 5)
+    articles = fetch_rss_news('https://rss.donga.com/total.xml')
     if not articles:
         items = [{
             "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
@@ -179,7 +179,7 @@ def fetch_donga_search_news(keyword, max_count=5):
             "link": {"web": a["link"]}
         } for a in articles]
 
-    for item in items:
+    for item in items[:10]:
         from google import genai
 
         import base64
@@ -201,7 +201,7 @@ def fetch_donga_search_news(keyword, max_count=5):
             items.remove(item)
         
 
-    return items
+    return items[:5]
 
     # end_time = time.time() # 종료 시간 기록
     # print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
