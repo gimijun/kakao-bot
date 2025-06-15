@@ -197,7 +197,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         )
         print(response.text)
 
-        if response.text.rstrip('%') <= 50:
+        if int(response.text.rstrip('%')) <= 50:
             items.remove(item)
         
 
