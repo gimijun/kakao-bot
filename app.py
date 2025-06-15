@@ -164,7 +164,7 @@ def fetch_donga_search_news(keyword, max_count=5):
     #     sys.stdout.flush()
     #     return []
 
-        """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
+    """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
     articles = fetch_rss_news('https://rss.donga.com/total.xml')
     if not articles:
         items = [{
