@@ -209,11 +209,6 @@ def fetch_donga_search_news(keyword, max_count=5):
                     "header": {"title": f"검색 결과"},
                     "useCallback": True,
                     "items": items[:5],
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
                 }
             }],
             "quickReplies": common_quick_replies(topic=title) 
