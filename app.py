@@ -164,27 +164,6 @@ def fetch_donga_search_news(keyword, max_count=5):
     #     sys.stdout.flush()
     #     return []
 
-    return jsonify({
-        "version": "2.0",
-        "template": {
-            "outputs": [{
-                "listCard": {
-                    "header": {"title": f"{title} 뉴스 TOP {len(items)}"},
-                    "items": items,
-                    "buttons": [{
-                        "label": "더보기",
-                        "action": "webLink",
-                        "webLinkUrl": web_url
-                    }]
-                }
-            }],
-            "quickReplies": common_quick_replies(topic=title) 
-        }
-    })
-
-
-
-    
     """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
     articles = fetch_rss_news('https://rss.donga.com/total.xml')
     if not articles:
