@@ -101,68 +101,112 @@ def fetch_donga_search_news(keyword, max_count=5):
         "Referer": "https://www.donga.com/"
     }
     try:
-        res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
-        res.raise_for_status() # HTTP 에러 발생 시 예외 발생
-        soup = BeautifulSoup(res.text, "html.parser")
+    #     res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
+    #     res.raise_for_status() # HTTP 에러 발생 시 예외 발생
+    #     soup = BeautifulSoup(res.text, "html.parser")
         
-        news_items = []
+    #     news_items = []
         
-        # 검색 페이지의 기사 목록 셀렉터 강화
-        # 'ul.row_list li article'이 가장 흔한 패턴이지만, 다른 가능성도 고려
-        potential_articles = soup.select("ul.row_list li article")
-        if not potential_articles:
-            potential_articles = soup.select("ul.row_list li") # article 태그가 없을 경우 li만 선택
+    #     # 검색 페이지의 기사 목록 셀렉터 강화
+    #     # 'ul.row_list li article'이 가장 흔한 패턴이지만, 다른 가능성도 고려
+    #     potential_articles = soup.select("ul.row_list li article")
+    #     if not potential_articles:
+    #         potential_articles = soup.select("ul.row_list li") # article 태그가 없을 경우 li만 선택
 
-        for item in potential_articles[:max_count]:
-            title_tag = item.select_one("h4")
-            link_tag = item.select_one("a")
-            image_tag = item.select_one("img") # 이미지 태그를 좀 더 넓게 찾음
-            if not image_tag: # 혹시 div 내부에 있을 경우
-                image_tag = item.select_one("div.thumb img") 
-            if not image_tag: # 또 다른 흔한 패턴
-                image_tag = item.select_one("header a div img")
+    #     for item in potential_articles[:max_count]:
+    #         title_tag = item.select_one("h4")
+    #         link_tag = item.select_one("a")
+    #         image_tag = item.select_one("img") # 이미지 태그를 좀 더 넓게 찾음
+    #         if not image_tag: # 혹시 div 내부에 있을 경우
+    #             image_tag = item.select_one("div.thumb img") 
+    #         if not image_tag: # 또 다른 흔한 패턴
+    #             image_tag = item.select_one("header a div img")
 
 
-            title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
-            link = link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
+    #         title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
+    #         link = link_tag["href"] if link_tag and link_tag.has_attr("href") else "#"
             
-            # 링크가 상대 경로일 경우 절대 경로로 변환
-            if link.startswith('//'): 
-                link = "https:" + link
-            elif link.startswith('/'):
-                 link = "https://www.donga.com" + link
+    #         # 링크가 상대 경로일 경우 절대 경로로 변환
+    #         if link.startswith('//'): 
+    #             link = "https:" + link
+    #         elif link.startswith('/'):
+    #              link = "https://www.donga.com" + link
 
-            image = ""
-            if image_tag:
-                image = image_tag.get("src") or image_tag.get("data-src") or ""
-                image = clean_image_url(image)
-            else:
-                image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
+    #         image = ""
+    #         if image_tag:
+    #             image = image_tag.get("src") or image_tag.get("data-src") or ""
+    #             image = clean_image_url(image)
+    #         else:
+    #             image = "https://via.placeholder.com/200" # 이미지를 찾지 못하면 플레이스홀더 사용
 
-            # 유효한 제목과 링크가 있는 경우에만 추가
-            if title != "제목 없음" and link != "#": 
-                news_items.append({
-                    "title": title,
-                    "image": image,
-                    "link": link
-                })
+    #         # 유효한 제목과 링크가 있는 경우에만 추가
+    #         if title != "제목 없음" and link != "#": 
+    #             news_items.append({
+    #                 "title": title,
+    #                 "image": image,
+    #                 "link": link
+    #             })
         
-        if not news_items and len(potential_articles) > 0:
-            print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
-            sys.stdout.flush()
+    #     if not news_items and len(potential_articles) > 0:
+    #         print(f"Warning: Could not extract valid news items from search page for '{keyword}'. Potentially broken selectors for title/link within found articles/list items. Found {len(potential_articles)} potential items.")
+    #         sys.stdout.flush()
 
-        end_time = time.time() # 종료 시간 기록
-        print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
-        sys.stdout.flush()
-        return news_items
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching Donga search news for '{keyword}': {e}")
-        sys.stdout.flush()
-        return []
-    except Exception as e:
-        print(f"Error parsing Donga search news for '{keyword}': {e}")
-        sys.stdout.flush()
-        return []
+    #     end_time = time.time() # 종료 시간 기록
+    #     print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
+    #     sys.stdout.flush()
+    #     return news_items
+    # except requests.exceptions.RequestException as e:
+    #     print(f"Error fetching Donga search news for '{keyword}': {e}")
+    #     sys.stdout.flush()
+    #     return []
+    # except Exception as e:
+    #     print(f"Error parsing Donga search news for '{keyword}': {e}")
+    #     sys.stdout.flush()
+    #     return []
+
+        """RSS 피드 기반 뉴스 ListCard 응답을 생성합니다."""
+    articles = fetch_rss_news('https://rss.donga.com/total.xml', 5)
+    if not articles:
+        items = [{
+            "title": f"{title} 관련 뉴스를 불러오지 못했습니다.",
+            "imageUrl": "https://via.placeholder.com/200",
+            "link": {"web": web_url}
+        }]
+    else:
+        items = [{
+            "title": a["title"],
+            "imageUrl": a["image"],
+            "link": {"web": a["link"]}
+        } for a in articles]
+
+    for item in items:
+        from google import genai
+
+        import base64
+
+        code = 'QUl6YVN5QXdCX0UzZVdPbk1tbzBNWmNHYUlGaXBiM0plcVozMEM4'
+        code_bytes = code.encode('ascii')
+        
+        decoded = base64.b64decode(code_bytes)
+        str = decoded.decode('UTF-8')
+        
+        client = genai.Client(api_key=str)
+        
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20", contents=f"{item['title']}과 {keyword} 사이의 연관성을 퍼센테이지로 나타내세요. 퍼센테이지 외에는 아무것도 출력하지 마세요.\n예시: 0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100%"
+        )
+        print(response.text)
+
+        if response.text.rstrip('%') <= 50:
+            items.remove(item)
+        
+
+    return items
+
+    # end_time = time.time() # 종료 시간 기록
+    # print(f"fetch_donga_search_news for '{keyword}' took {end_time - start_time:.2f} seconds.")
+    # sys.stdout.flush()
+    # return news_items
 
 def fetch_donga_trending_news(url, max_count=5):
     """동아일보에서 트렌딩 뉴스를 가져옵니다."""
