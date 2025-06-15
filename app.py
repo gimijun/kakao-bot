@@ -333,7 +333,7 @@ def fetch_donga_trending_news(url, max_count=5):
 def common_quick_replies(topic=None): 
     """모든 뉴스 응답에서 공통으로 사용될 Quick Replies를 생성합니다."""
     quick_replies_list = [
-        {"label": "알림받기", "action": "message", "messageText": "알림받기", "blockId": "683595262a22a85698b93337"},
+        {"label": "알림 받기", "action": "message", "messageText": "알림 받기", "blockId": "683595262a22a85698b93337"},
         {"label": "검색", "action": "message", "messageText": "검색", "blockId": "6840fd4cc5b310190b70166a"},
         {"label": "정치", "action": "message", "messageText": "정치", "blockId": "683596834df7f67fcdd66b62"},
         {"label": "경제", "action": "message", "messageText": "경제", "blockId": "683596b798b6403c8dad6138"},
@@ -834,12 +834,12 @@ def news_entertainment():
 # 트렌딩 뉴스 라우트
 @app.route("/news/trending", methods=["POST"])
 def trending_daily():
-    """'요즘 뜨는 뉴스' 요청을 처리합니다."""
+    """'일간 뉴스' 요청을 처리합니다."""
     return trending_card_response("일간 뉴스", "https://www.donga.com/news/TrendNews/daily")
 
 @app.route("/news/popular", methods=["POST"])
 def trending_monthly():
-    """'많이 본 뉴스' 요청을 처리합니다."""
+    """'월간 뉴스' 요청을 처리합니다."""
     return trending_card_response("월간 뉴스", "https://www.donga.com/news/TrendNews/monthly")
 
 # 날씨 정보 라우트 (기존 /weather/change-region 유지)
