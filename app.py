@@ -100,7 +100,7 @@ def fetch_donga_search_news(keyword, max_count=5):
         "Accept-Language": "ko-KR,ko;q=0.9",
         "Referer": "https://www.donga.com/"
     }
-    try:
+    # try:
     #     res = requests.get(url, headers=headers, timeout=5) # Timeout 5초로 변경
     #     res.raise_for_status() # HTTP 에러 발생 시 예외 발생
     #     soup = BeautifulSoup(res.text, "html.parser")
